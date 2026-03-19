@@ -12,6 +12,9 @@ export const users = pgTable('users', {
   password: text('password').notNull(),
   role: varchar('role', { length: 20 }).notNull().default('team'),
   initials: varchar('initials', { length: 4 }).notNull(),
+  hourlyRate: integer('hourly_rate'),
+  weeklyHours: integer('weekly_hours'),
+  paySchedule: varchar('pay_schedule', { length: 30 }),
   createdAt: timestamp('created_at').defaultNow(),
 })
 

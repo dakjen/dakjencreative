@@ -20,9 +20,8 @@ const BIZ_LINES: Record<string, { label: string; color: string; bg: string }> = 
   djc:        { label: 'DJC Marketing',    color: '#1C3557', bg: 'rgba(28,53,87,.1)'   },
   notable:    { label: 'Notable',          color: '#b07a8a', bg: 'rgba(176,122,138,.15)'},
   elitewise:  { label: 'Elitewise',        color: '#6366f1', bg: 'rgba(99,102,241,.1)' },
-  nreuv:      { label: 'NREUV / CCO',      color: '#0e7490', bg: 'rgba(14,116,144,.1)' },
-  fractional: { label: 'Fractional Brand', color: '#059669', bg: 'rgba(5,150,105,.1)'  },
-  linkedin:   { label: 'LI Intensive',     color: '#9333ea', bg: 'rgba(147,51,234,.1)' },
+  fractional: { label: 'Fractional Services', color: '#059669', bg: 'rgba(5,150,105,.1)'  },
+  community:  { label: 'Business Community', color: '#d97706', bg: 'rgba(217,119,6,.1)'  },
 }
 
 const STAGES: Record<string, { label: string; color: string; prob: number }> = {
@@ -304,7 +303,7 @@ export default function RevenueTracker({ userRole }: { userRole: string }) {
   const weightedTotal = pipeline.reduce((s, c) => s + weightedValue(c), 0)
   const projectedTotal= confirmedTotal + weightedTotal
 
-  const TARGET_CENTS = 50895000 // 2.5× 2025 revenue of $203,581 ≈ $508,950 in cents
+  const TARGET_CENTS = 50000000 // $500K/yr annual revenue goal by end of Year 2
 
   const byLine = Object.entries(BIZ_LINES).map(([key, meta]) => ({
     label: meta.label,
@@ -347,8 +346,8 @@ export default function RevenueTracker({ userRole }: { userRole: string }) {
       {/* ── 2-YEAR TARGET PROGRESS ── */}
       <div style={{ background: 'white', border: '1px solid #e8e6e1', borderRadius: '12px', padding: '20px 24px', marginBottom: '24px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-          <span style={{ fontSize: '13px', fontWeight: 500, color: '#1C3557' }}>2-Year Revenue Target Progress</span>
-          <span style={{ fontSize: '12px', color: '#9e9a93' }}>Goal: {fmt(TARGET_CENTS)} <span style={{ color: '#9ca3af' }}>· 2.5× 2025 baseline</span></span>
+          <span style={{ fontSize: '13px', fontWeight: 500, color: '#1C3557' }}>Annual Revenue Goal</span>
+          <span style={{ fontSize: '12px', color: '#9e9a93' }}>Target: {fmt(TARGET_CENTS)}/yr <span style={{ color: '#9ca3af' }}>· by end of Year 2</span></span>
         </div>
         <div style={{ background: '#f5f4f2', borderRadius: '999px', height: '10px', overflow: 'hidden' }}>
           <div style={{

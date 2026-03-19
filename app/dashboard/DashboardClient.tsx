@@ -8,9 +8,8 @@ const BIZ_LINES_META = {
   djc:        { label: 'DJC Marketing',    badge: 'Lease-Up Marketing', desc: 'Results-driven lease-up marketing for affordable housing.' },
   notable:    { label: 'Notable',          badge: 'Brand Presence',     desc: 'Platform-building for women founders & executives.'         },
   elitewise:  { label: 'Elitewise Escapes',badge: 'Luxury Travel',      desc: 'Bespoke luxury travel curation.'                           },
-  nreuv:      { label: 'NREUV / CCO',      badge: 'CCO Retainer',       desc: 'Fractional Chief Creative Officer services.'               },
-  fractional: { label: 'Fractional Brand', badge: 'Brand Management',   desc: 'Brand leadership retainer. $2.5K–$6K/mo.'                 },
-  linkedin:   { label: 'LI Voice Intensive',badge: 'LinkedIn',          desc: 'Voice & platform development. $1.5K+'                     },
+  fractional: { label: 'Fractional Services', badge: 'Fractional Services', desc: 'Fractional executive & brand leadership retainers.'       },
+  community:  { label: 'Business Community', badge: 'Small Biz Support',   desc: 'Small business consulting & community support.'            },
 }
 
 const QUICK_LINKS = [
@@ -31,7 +30,6 @@ const NAV = [
   { id: 'djc',           label: 'DJC Marketing',   section: 'lines'   },
   { id: 'notable',       label: 'Notable',         section: 'lines'   },
   { id: 'elitewise',     label: 'Elitewise',       section: 'lines'   },
-  { id: 'nreuv',         label: 'NREUV / CCO',     section: 'lines'   },
   { id: 'websites',      label: 'Websites',        section: 'workspace'},
   { id: 'integrations',  label: 'Integrations',    section: 'workspace'},
   { id: 'financials',    label: 'Financials',      section: 'workspace'},
@@ -41,7 +39,7 @@ const NAV = [
 const PAGE_TITLES: Record<string, string> = {
   overview: 'Dashboard', revenue: 'Revenue Tracker', tasks: 'Tasks',
   djc: 'DJC Marketing', notable: 'Notable', elitewise: 'Elitewise Escapes',
-  nreuv: 'NREUV / CCO', websites: 'Websites', integrations: 'Integrations',
+  websites: 'Websites', integrations: 'Integrations',
   financials: 'Financials', team: 'Team',
 }
 
@@ -60,11 +58,12 @@ export default function DashboardClient({ session }: { session: Session }) {
   const [newTask, setNewTask]   = useState({ text: '', tag: 'djc', due: '', assignee: 'Dakotah' })
 
   // ── TEAM STATE ──
-  interface TeamMember { id: number; name: string; email: string; role: string; initials: string; created_at: string }
+  interface TeamMember { id: number; name: string; email: string; role: string; initials: string; hourly_rate: number | null; weekly_hours: number | null; pay_schedule: string | null; created_at: string }
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([])
   const [teamLoaded, setTeamLoaded]   = useState(false)
   const [showTeamModal, setShowTeamModal] = useState(false)
-  const [teamForm, setTeamForm] = useState({ name: '', email: '', password: '', role: 'team' })
+  const [editingMember, setEditingMember] = useState<TeamMember | null>(null)
+  const [teamForm, setTeamForm] = useState({ name: '', email: '', password: '', role: 'team', hourly_rate: '', weekly_hours: '', pay_schedule: '' })
   const [teamMsg, setTeamMsg]   = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
   const user     = session.user as any
@@ -90,21 +89,66 @@ export default function DashboardClient({ session }: { session: Session }) {
   async function addTeamMember() {
     if (!teamForm.name.trim() || !teamForm.email.trim() || !teamForm.password.trim()) return
     setTeamMsg(null)
+    const body: any = { ...teamForm }
+    if (body.hourly_rate) body.hourly_rate = Number(body.hourly_rate)
+    else delete body.hourly_rate
+    if (body.weekly_hours) body.weekly_hours = Number(body.weekly_hours)
+    else delete body.weekly_hours
+    if (!body.pay_schedule) delete body.pay_schedule
     const res = await fetch('/api/users', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(teamForm),
+      body: JSON.stringify(body),
     })
     if (res.ok) {
       const member = await res.json()
       setTeamMembers(ms => [...ms, member])
-      setTeamForm({ name: '', email: '', password: '', role: 'team' })
+      setTeamForm({ name: '', email: '', password: '', role: 'team', hourly_rate: '', weekly_hours: '', pay_schedule: '' })
       setShowTeamModal(false)
       setTeamMsg({ type: 'success', text: `${member.name} added successfully.` })
     } else {
       const err = await res.json()
       setTeamMsg({ type: 'error', text: err.error ?? 'Something went wrong.' })
     }
+  }
+
+  async function updateTeamMember() {
+    if (!editingMember) return
+    setTeamMsg(null)
+    const body: any = {
+      id: editingMember.id,
+      hourly_rate: teamForm.hourly_rate ? Number(teamForm.hourly_rate) : null,
+      weekly_hours: teamForm.weekly_hours ? Number(teamForm.weekly_hours) : null,
+      pay_schedule: teamForm.pay_schedule || null,
+    }
+    const res = await fetch('/api/users', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+    if (res.ok) {
+      const updated = await res.json()
+      setTeamMembers(ms => ms.map(m => m.id === updated.id ? { ...m, ...updated } : m))
+      setEditingMember(null)
+      setShowTeamModal(false)
+      setTeamForm({ name: '', email: '', password: '', role: 'team', hourly_rate: '', weekly_hours: '', pay_schedule: '' })
+      setTeamMsg({ type: 'success', text: `${updated.name} updated.` })
+    } else {
+      const err = await res.json()
+      setTeamMsg({ type: 'error', text: err.error ?? 'Something went wrong.' })
+    }
+  }
+
+  function openEditModal(m: TeamMember) {
+    setEditingMember(m)
+    setTeamForm({
+      name: m.name, email: m.email, password: '', role: m.role,
+      hourly_rate: m.hourly_rate?.toString() ?? '',
+      weekly_hours: m.weekly_hours?.toString() ?? '',
+      pay_schedule: m.pay_schedule ?? '',
+    })
+    setTeamMsg(null)
+    setShowTeamModal(true)
   }
 
   function goTo(id: string) {
@@ -135,9 +179,9 @@ export default function DashboardClient({ session }: { session: Session }) {
   const openTasks   = tasks.filter(t => !t.done)
   const shownTasks  = taskFilter === 'all' ? tasks : tasks.filter(t => t.tag === taskFilter)
 
-  const tagColors: Record<string, string> = { djc: '#1C3557', notable: '#b07a8a', elitewise: '#6366f1', nreuv: '#0e7490' }
-  const tagBg: Record<string, string>     = { djc: 'rgba(28,53,87,.08)', notable: 'rgba(176,122,138,.12)', elitewise: 'rgba(99,102,241,.08)', nreuv: 'rgba(14,116,144,.08)' }
-  const tagLabel: Record<string, string>  = { djc: 'DJC Marketing', notable: 'Notable', elitewise: 'Elitewise', nreuv: 'NREUV' }
+  const tagColors: Record<string, string> = { djc: '#1C3557', notable: '#b07a8a', elitewise: '#6366f1', fractional: '#059669', community: '#d97706' }
+  const tagBg: Record<string, string>     = { djc: 'rgba(28,53,87,.08)', notable: 'rgba(176,122,138,.12)', elitewise: 'rgba(99,102,241,.08)', fractional: 'rgba(5,150,105,.08)', community: 'rgba(217,119,6,.08)' }
+  const tagLabel: Record<string, string>  = { djc: 'DJC Marketing', notable: 'Notable', elitewise: 'Elitewise', fractional: 'Fractional', community: 'Community' }
 
   // ── SIDEBAR ──
   const sidebar = (
@@ -273,7 +317,7 @@ export default function DashboardClient({ session }: { session: Session }) {
       case 'tasks': return (
         <div className="animate-fadeUp">
           <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', alignItems: 'center', flexWrap: 'wrap' }}>
-            {['all','djc','notable','elitewise','nreuv'].map(f => (
+            {['all','djc','notable','elitewise','fractional','community'].map(f => (
               <button key={f} onClick={() => setTaskFilter(f)} style={{ padding: '6px 14px', borderRadius: '20px', border: '1px solid', borderColor: taskFilter === f ? '#1C3557' : '#e8e6e1', background: taskFilter === f ? '#1C3557' : 'white', color: taskFilter === f ? 'white' : '#6b6560', fontSize: '12px', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}>
                 {f === 'all' ? 'All' : tagLabel[f]}
               </button>
@@ -320,7 +364,8 @@ export default function DashboardClient({ session }: { session: Session }) {
                       <option value="djc">DJC Marketing</option>
                       <option value="notable">Notable</option>
                       <option value="elitewise">Elitewise</option>
-                      <option value="nreuv">NREUV</option>
+                      <option value="fractional">Fractional</option>
+                      <option value="community">Business Community</option>
                     </select>
                   </div>
                   <div>
@@ -436,7 +481,7 @@ export default function DashboardClient({ session }: { session: Session }) {
           {/* Header row with Add button */}
           {user.role === 'owner' && (
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '16px' }}>
-              <button onClick={() => { setTeamMsg(null); setShowTeamModal(true) }} style={{ padding: '8px 18px', borderRadius: '8px', border: 'none', background: '#b07a8a', color: 'white', fontSize: '13px', fontWeight: 500, cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}>
+              <button onClick={() => { setTeamMsg(null); setEditingMember(null); setTeamForm({ name: '', email: '', password: '', role: 'team', hourly_rate: '', weekly_hours: '', pay_schedule: '' }); setShowTeamModal(true) }} style={{ padding: '8px 18px', borderRadius: '8px', border: 'none', background: '#b07a8a', color: 'white', fontSize: '13px', fontWeight: 500, cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}>
                 + Add Team Member
               </button>
             </div>
@@ -457,64 +502,93 @@ export default function DashboardClient({ session }: { session: Session }) {
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '14px', marginBottom: '28px' }}>
               {teamMembers.map((m, i) => (
-                <div key={m.id} style={{ ...card, textAlign: 'center' }}>
+                <div key={m.id} style={{ ...card, textAlign: 'center', position: 'relative' }}>
+                  {user.role === 'owner' && (
+                    <button onClick={() => openEditModal(m)} style={{ position: 'absolute', top: '12px', right: '12px', background: 'none', border: 'none', cursor: 'pointer', color: '#9e9a93', fontSize: '12px', padding: '2px 6px' }} title="Edit">
+                      Edit
+                    </button>
+                  )}
                   <div style={{ width: '52px', height: '52px', borderRadius: '50%', background: memberColors[i % memberColors.length], display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', fontWeight: 600, color: 'white', margin: '0 auto 12px' }}>{m.initials}</div>
                   <div style={{ fontSize: '13px', fontWeight: 500, marginBottom: '3px' }}>{m.name}</div>
                   <div style={{ fontSize: '11px', color: '#9e9a93', textTransform: 'capitalize' }}>{m.role}</div>
                   <div style={{ fontSize: '10px', color: '#d1cec9', marginTop: '4px' }}>{m.email}</div>
+                  {user.role === 'owner' && (m.hourly_rate || m.weekly_hours || m.pay_schedule) && (
+                    <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #f5f4f2', fontSize: '11px', color: '#6b6560' }}>
+                      {m.hourly_rate != null && <div>${m.hourly_rate / 100}/hr</div>}
+                      {m.weekly_hours != null && <div>{m.weekly_hours} hrs/wk</div>}
+                      {m.pay_schedule && <div style={{ color: '#9e9a93', marginTop: '2px' }}>{m.pay_schedule}</div>}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
           )}
 
-          {/* Contractor Pay Schedule (kept) */}
-          <div style={{ ...card, maxWidth: '440px' }}>
-            <div style={{ fontSize: '13px', fontWeight: 500, color: '#1C3557', marginBottom: '14px' }}>Contractor Pay Schedule</div>
-            {[['Pay Frequency','Twice monthly'],['Schedule','1st & 15th'],['NREUV Rate','$62.50/hr'],['NREUV Hours','30 hrs/wk'],['Next Review','After Oct 1, 2025']].map(([l,v]) => (
-              <div key={l} style={{ display: 'flex', justifyContent: 'space-between', padding: '9px 0', borderBottom: '1px solid #f5f4f2', fontSize: '13px' }}>
-                <span style={{ color: '#6b6560' }}>{l}</span>
-                <span style={{ fontWeight: 500, color: l === 'Next Review' ? '#b07a8a' : '#1C3557' }}>{v}</span>
-              </div>
-            ))}
-          </div>
-
-          {/* Add Team Member Modal */}
+          {/* Add / Edit Team Member Modal */}
           {showTeamModal && (
-            <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(15,31,51,.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }} onClick={e => { if (e.target === e.currentTarget) setShowTeamModal(false) }}>
+            <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(15,31,51,.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }} onClick={e => { if (e.target === e.currentTarget) { setShowTeamModal(false); setEditingMember(null) } }}>
               <div style={{ background: 'white', borderRadius: '16px', padding: '36px', width: '100%', maxWidth: '480px', boxShadow: '0 24px 60px rgba(0,0,0,.2)' }}>
-                <h2 style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '24px', color: '#1C3557', marginBottom: '24px' }}>Add Team Member</h2>
+                <h2 style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '24px', color: '#1C3557', marginBottom: '24px' }}>{editingMember ? `Edit ${editingMember.name}` : 'Add Team Member'}</h2>
 
                 {teamMsg?.type === 'error' && (
                   <div style={{ padding: '8px 14px', borderRadius: '6px', marginBottom: '16px', fontSize: '12px', background: 'rgba(220,38,38,.08)', color: '#dc2626', border: '1px solid rgba(220,38,38,.2)' }}>{teamMsg.text}</div>
                 )}
 
-                <div style={{ marginBottom: '16px' }}>
-                  <label style={{ display: 'block', fontSize: '11px', letterSpacing: '.08em', textTransform: 'uppercase', color: '#9e9a93', marginBottom: '6px' }}>Full Name</label>
-                  <input value={teamForm.name} onChange={e => setTeamForm(f => ({...f, name: e.target.value}))} placeholder="Jane Smith" style={{ width: '100%', padding: '10px 14px', border: '1px solid #e8e6e1', borderRadius: '8px', fontFamily: 'DM Sans, sans-serif', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
-                </div>
-                <div style={{ marginBottom: '16px' }}>
-                  <label style={{ display: 'block', fontSize: '11px', letterSpacing: '.08em', textTransform: 'uppercase', color: '#9e9a93', marginBottom: '6px' }}>Email</label>
-                  <input type="email" value={teamForm.email} onChange={e => setTeamForm(f => ({...f, email: e.target.value}))} placeholder="jane@dakjencreative.com" style={{ width: '100%', padding: '10px 14px', border: '1px solid #e8e6e1', borderRadius: '8px', fontFamily: 'DM Sans, sans-serif', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '24px' }}>
+                {!editingMember && (
+                  <>
+                    <div style={{ marginBottom: '16px' }}>
+                      <label style={{ display: 'block', fontSize: '11px', letterSpacing: '.08em', textTransform: 'uppercase', color: '#9e9a93', marginBottom: '6px' }}>Full Name</label>
+                      <input value={teamForm.name} onChange={e => setTeamForm(f => ({...f, name: e.target.value}))} placeholder="Jane Smith" style={{ width: '100%', padding: '10px 14px', border: '1px solid #e8e6e1', borderRadius: '8px', fontFamily: 'DM Sans, sans-serif', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
+                    </div>
+                    <div style={{ marginBottom: '16px' }}>
+                      <label style={{ display: 'block', fontSize: '11px', letterSpacing: '.08em', textTransform: 'uppercase', color: '#9e9a93', marginBottom: '6px' }}>Email</label>
+                      <input type="email" value={teamForm.email} onChange={e => setTeamForm(f => ({...f, email: e.target.value}))} placeholder="jane@dakjencreative.com" style={{ width: '100%', padding: '10px 14px', border: '1px solid #e8e6e1', borderRadius: '8px', fontFamily: 'DM Sans, sans-serif', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '11px', letterSpacing: '.08em', textTransform: 'uppercase', color: '#9e9a93', marginBottom: '6px' }}>Password</label>
+                        <input type="password" value={teamForm.password} onChange={e => setTeamForm(f => ({...f, password: e.target.value}))} placeholder="Temporary password" style={{ width: '100%', padding: '10px 14px', border: '1px solid #e8e6e1', borderRadius: '8px', fontFamily: 'DM Sans, sans-serif', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '11px', letterSpacing: '.08em', textTransform: 'uppercase', color: '#9e9a93', marginBottom: '6px' }}>Role</label>
+                        <select value={teamForm.role} onChange={e => setTeamForm(f => ({...f, role: e.target.value}))} style={{ width: '100%', padding: '10px 14px', border: '1px solid #e8e6e1', borderRadius: '8px', fontFamily: 'DM Sans, sans-serif', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }}>
+                          <option value="team">Team</option>
+                          <option value="owner">Owner</option>
+                        </select>
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
                   <div>
-                    <label style={{ display: 'block', fontSize: '11px', letterSpacing: '.08em', textTransform: 'uppercase', color: '#9e9a93', marginBottom: '6px' }}>Password</label>
-                    <input type="password" value={teamForm.password} onChange={e => setTeamForm(f => ({...f, password: e.target.value}))} placeholder="Temporary password" style={{ width: '100%', padding: '10px 14px', border: '1px solid #e8e6e1', borderRadius: '8px', fontFamily: 'DM Sans, sans-serif', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
+                    <label style={{ display: 'block', fontSize: '11px', letterSpacing: '.08em', textTransform: 'uppercase', color: '#9e9a93', marginBottom: '6px' }}>Hourly Rate (cents)</label>
+                    <input type="number" value={teamForm.hourly_rate} onChange={e => setTeamForm(f => ({...f, hourly_rate: e.target.value}))} placeholder="6250 = $62.50" style={{ width: '100%', padding: '10px 14px', border: '1px solid #e8e6e1', borderRadius: '8px', fontFamily: 'DM Sans, sans-serif', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
                   </div>
                   <div>
-                    <label style={{ display: 'block', fontSize: '11px', letterSpacing: '.08em', textTransform: 'uppercase', color: '#9e9a93', marginBottom: '6px' }}>Role</label>
-                    <select value={teamForm.role} onChange={e => setTeamForm(f => ({...f, role: e.target.value}))} style={{ width: '100%', padding: '10px 14px', border: '1px solid #e8e6e1', borderRadius: '8px', fontFamily: 'DM Sans, sans-serif', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }}>
-                      <option value="team">Team</option>
-                      <option value="owner">Owner</option>
-                    </select>
+                    <label style={{ display: 'block', fontSize: '11px', letterSpacing: '.08em', textTransform: 'uppercase', color: '#9e9a93', marginBottom: '6px' }}>Weekly Hours</label>
+                    <input type="number" value={teamForm.weekly_hours} onChange={e => setTeamForm(f => ({...f, weekly_hours: e.target.value}))} placeholder="30" style={{ width: '100%', padding: '10px 14px', border: '1px solid #e8e6e1', borderRadius: '8px', fontFamily: 'DM Sans, sans-serif', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
                   </div>
                 </div>
-                <div style={{ fontSize: '11px', color: '#9e9a93', marginBottom: '20px' }}>
-                  Initials will be auto-generated from the name.
+                <div style={{ marginBottom: '24px' }}>
+                  <label style={{ display: 'block', fontSize: '11px', letterSpacing: '.08em', textTransform: 'uppercase', color: '#9e9a93', marginBottom: '6px' }}>Pay Schedule</label>
+                  <select value={teamForm.pay_schedule} onChange={e => setTeamForm(f => ({...f, pay_schedule: e.target.value}))} style={{ width: '100%', padding: '10px 14px', border: '1px solid #e8e6e1', borderRadius: '8px', fontFamily: 'DM Sans, sans-serif', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }}>
+                    <option value="">None</option>
+                    <option value="1st & 15th">1st & 15th</option>
+                    <option value="Bi-weekly">Bi-weekly</option>
+                    <option value="Monthly">Monthly</option>
+                    <option value="Weekly">Weekly</option>
+                  </select>
                 </div>
+
+                {!editingMember && (
+                  <div style={{ fontSize: '11px', color: '#9e9a93', marginBottom: '20px' }}>
+                    Initials will be auto-generated from the name.
+                  </div>
+                )}
                 <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-                  <button onClick={() => setShowTeamModal(false)} style={{ padding: '10px 20px', border: '1px solid #e8e6e1', borderRadius: '8px', background: 'none', color: '#6b6560', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', fontSize: '13px' }}>Cancel</button>
-                  <button onClick={addTeamMember} style={{ padding: '10px 24px', border: 'none', borderRadius: '8px', background: '#b07a8a', color: 'white', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', fontSize: '13px', fontWeight: 500 }}>Add Member</button>
+                  <button onClick={() => { setShowTeamModal(false); setEditingMember(null) }} style={{ padding: '10px 20px', border: '1px solid #e8e6e1', borderRadius: '8px', background: 'none', color: '#6b6560', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', fontSize: '13px' }}>Cancel</button>
+                  <button onClick={editingMember ? updateTeamMember : addTeamMember} style={{ padding: '10px 24px', border: 'none', borderRadius: '8px', background: '#b07a8a', color: 'white', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', fontSize: '13px', fontWeight: 500 }}>{editingMember ? 'Save Changes' : 'Add Member'}</button>
                 </div>
               </div>
             </div>
