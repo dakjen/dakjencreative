@@ -514,7 +514,7 @@ export default function DashboardClient({ session }: { session: Session }) {
                   <div style={{ fontSize: '10px', color: '#d1cec9', marginTop: '4px' }}>{m.email}</div>
                   {user.role === 'owner' && (m.hourly_rate || m.weekly_hours || m.pay_schedule) && (
                     <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #f5f4f2', fontSize: '11px', color: '#6b6560' }}>
-                      {m.hourly_rate != null && <div>${m.hourly_rate / 100}/hr</div>}
+                      {m.hourly_rate != null && <div>${m.hourly_rate}/hr</div>}
                       {m.weekly_hours != null && <div>{m.weekly_hours} hrs/wk</div>}
                       {m.pay_schedule && <div style={{ color: '#9e9a93', marginTop: '2px' }}>{m.pay_schedule}</div>}
                     </div>
@@ -562,8 +562,8 @@ export default function DashboardClient({ session }: { session: Session }) {
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
                   <div>
-                    <label style={{ display: 'block', fontSize: '11px', letterSpacing: '.08em', textTransform: 'uppercase', color: '#9e9a93', marginBottom: '6px' }}>Hourly Rate (cents)</label>
-                    <input type="number" value={teamForm.hourly_rate} onChange={e => setTeamForm(f => ({...f, hourly_rate: e.target.value}))} placeholder="6250 = $62.50" style={{ width: '100%', padding: '10px 14px', border: '1px solid #e8e6e1', borderRadius: '8px', fontFamily: 'DM Sans, sans-serif', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
+                    <label style={{ display: 'block', fontSize: '11px', letterSpacing: '.08em', textTransform: 'uppercase', color: '#9e9a93', marginBottom: '6px' }}>Hourly Rate ($)</label>
+                    <input type="number" value={teamForm.hourly_rate} onChange={e => setTeamForm(f => ({...f, hourly_rate: e.target.value}))} placeholder="e.g. 62" style={{ width: '100%', padding: '10px 14px', border: '1px solid #e8e6e1', borderRadius: '8px', fontFamily: 'DM Sans, sans-serif', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
                   </div>
                   <div>
                     <label style={{ display: 'block', fontSize: '11px', letterSpacing: '.08em', textTransform: 'uppercase', color: '#9e9a93', marginBottom: '6px' }}>Weekly Hours</label>
