@@ -59,6 +59,14 @@ export default function DashboardClient({ session }: { session: Session }) {
   const [showTaskModal, setShowTaskModal] = useState(false)
   const [newTask, setNewTask]   = useState({ text: '', tag: 'djc', due: '', assignee: 'Dakotah' })
 
+  // ── TEAM STATE ──
+  interface TeamMember { id: number; name: string; email: string; role: string; initials: string; created_at: string }
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([])
+  const [teamLoaded, setTeamLoaded]   = useState(false)
+  const [showTeamModal, setShowTeamModal] = useState(false)
+  const [teamForm, setTeamForm] = useState({ name: '', email: '', password: '', role: 'team' })
+  const [teamMsg, setTeamMsg]   = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+
   const user     = session.user as any
   const greeting = (() => { const h = new Date().getHours(); return h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening' })()
   const dateStr  = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
@@ -71,9 +79,38 @@ export default function DashboardClient({ session }: { session: Session }) {
     setTasksLoaded(true)
   }
 
+  async function loadTeam() {
+    if (teamLoaded) return
+    const res  = await fetch('/api/users')
+    const data = await res.json()
+    setTeamMembers(Array.isArray(data) ? data : [])
+    setTeamLoaded(true)
+  }
+
+  async function addTeamMember() {
+    if (!teamForm.name.trim() || !teamForm.email.trim() || !teamForm.password.trim()) return
+    setTeamMsg(null)
+    const res = await fetch('/api/users', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(teamForm),
+    })
+    if (res.ok) {
+      const member = await res.json()
+      setTeamMembers(ms => [...ms, member])
+      setTeamForm({ name: '', email: '', password: '', role: 'team' })
+      setShowTeamModal(false)
+      setTeamMsg({ type: 'success', text: `${member.name} added successfully.` })
+    } else {
+      const err = await res.json()
+      setTeamMsg({ type: 'error', text: err.error ?? 'Something went wrong.' })
+    }
+  }
+
   function goTo(id: string) {
     setPage(id)
     if (id === 'tasks') loadTasks()
+    if (id === 'team') loadTeam()
   }
 
   async function toggleTask(id: number, done: boolean) {
@@ -392,22 +429,45 @@ export default function DashboardClient({ session }: { session: Session }) {
         </div>
       )
 
-      case 'team': return (
+      case 'team': {
+        const memberColors = ['#1C3557','#b07a8a','#6366f1','#0e7490','#16a34a','#d97706']
+        return (
         <div className="animate-fadeUp">
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '14px', marginBottom: '28px' }}>
-            {[
-              { init:'DJ', name:'Dakotah Jennifer',  role:'Founder & Project Lead', color:'#1C3557' },
-              { init:'OB', name:'Olivia Blumenshine', role:'Digital Marketing & Ads', color:'#b07a8a' },
-              { init:'JF', name:'Jarea Fang',          role:'Marketing Coordinator',  color:'#6366f1' },
-              { init:'BH', name:'Brittni Hardie',      role:'Communications Manager', color:'#0e7490' },
-            ].map(m => (
-              <div key={m.name} style={{ ...card, textAlign: 'center' }}>
-                <div style={{ width: '52px', height: '52px', borderRadius: '50%', background: m.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', fontWeight: 600, color: 'white', margin: '0 auto 12px' }}>{m.init}</div>
-                <div style={{ fontSize: '13px', fontWeight: 500, marginBottom: '3px' }}>{m.name}</div>
-                <div style={{ fontSize: '11px', color: '#9e9a93' }}>{m.role}</div>
-              </div>
-            ))}
-          </div>
+          {/* Header row with Add button */}
+          {user.role === 'owner' && (
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '16px' }}>
+              <button onClick={() => { setTeamMsg(null); setShowTeamModal(true) }} style={{ padding: '8px 18px', borderRadius: '8px', border: 'none', background: '#b07a8a', color: 'white', fontSize: '13px', fontWeight: 500, cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}>
+                + Add Team Member
+              </button>
+            </div>
+          )}
+
+          {/* Success / error banner */}
+          {teamMsg && (
+            <div style={{ padding: '10px 16px', borderRadius: '8px', marginBottom: '16px', fontSize: '13px', background: teamMsg.type === 'success' ? 'rgba(22,163,74,.08)' : 'rgba(220,38,38,.08)', color: teamMsg.type === 'success' ? '#16a34a' : '#dc2626', border: `1px solid ${teamMsg.type === 'success' ? 'rgba(22,163,74,.2)' : 'rgba(220,38,38,.2)'}` }}>
+              {teamMsg.text}
+            </div>
+          )}
+
+          {/* Team member cards */}
+          {!teamLoaded ? (
+            <div style={{ textAlign: 'center', padding: '48px', color: '#9e9a93', fontSize: '13px' }}>Loading team...</div>
+          ) : teamMembers.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '48px', color: '#9e9a93', fontSize: '13px' }}>No team members found.</div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '14px', marginBottom: '28px' }}>
+              {teamMembers.map((m, i) => (
+                <div key={m.id} style={{ ...card, textAlign: 'center' }}>
+                  <div style={{ width: '52px', height: '52px', borderRadius: '50%', background: memberColors[i % memberColors.length], display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', fontWeight: 600, color: 'white', margin: '0 auto 12px' }}>{m.initials}</div>
+                  <div style={{ fontSize: '13px', fontWeight: 500, marginBottom: '3px' }}>{m.name}</div>
+                  <div style={{ fontSize: '11px', color: '#9e9a93', textTransform: 'capitalize' }}>{m.role}</div>
+                  <div style={{ fontSize: '10px', color: '#d1cec9', marginTop: '4px' }}>{m.email}</div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Contractor Pay Schedule (kept) */}
           <div style={{ ...card, maxWidth: '440px' }}>
             <div style={{ fontSize: '13px', fontWeight: 500, color: '#1C3557', marginBottom: '14px' }}>Contractor Pay Schedule</div>
             {[['Pay Frequency','Twice monthly'],['Schedule','1st & 15th'],['NREUV Rate','$62.50/hr'],['NREUV Hours','30 hrs/wk'],['Next Review','After Oct 1, 2025']].map(([l,v]) => (
@@ -417,8 +477,50 @@ export default function DashboardClient({ session }: { session: Session }) {
               </div>
             ))}
           </div>
+
+          {/* Add Team Member Modal */}
+          {showTeamModal && (
+            <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(15,31,51,.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }} onClick={e => { if (e.target === e.currentTarget) setShowTeamModal(false) }}>
+              <div style={{ background: 'white', borderRadius: '16px', padding: '36px', width: '100%', maxWidth: '480px', boxShadow: '0 24px 60px rgba(0,0,0,.2)' }}>
+                <h2 style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '24px', color: '#1C3557', marginBottom: '24px' }}>Add Team Member</h2>
+
+                {teamMsg?.type === 'error' && (
+                  <div style={{ padding: '8px 14px', borderRadius: '6px', marginBottom: '16px', fontSize: '12px', background: 'rgba(220,38,38,.08)', color: '#dc2626', border: '1px solid rgba(220,38,38,.2)' }}>{teamMsg.text}</div>
+                )}
+
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={{ display: 'block', fontSize: '11px', letterSpacing: '.08em', textTransform: 'uppercase', color: '#9e9a93', marginBottom: '6px' }}>Full Name</label>
+                  <input value={teamForm.name} onChange={e => setTeamForm(f => ({...f, name: e.target.value}))} placeholder="Jane Smith" style={{ width: '100%', padding: '10px 14px', border: '1px solid #e8e6e1', borderRadius: '8px', fontFamily: 'DM Sans, sans-serif', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
+                </div>
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={{ display: 'block', fontSize: '11px', letterSpacing: '.08em', textTransform: 'uppercase', color: '#9e9a93', marginBottom: '6px' }}>Email</label>
+                  <input type="email" value={teamForm.email} onChange={e => setTeamForm(f => ({...f, email: e.target.value}))} placeholder="jane@dakjencreative.com" style={{ width: '100%', padding: '10px 14px', border: '1px solid #e8e6e1', borderRadius: '8px', fontFamily: 'DM Sans, sans-serif', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '24px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '11px', letterSpacing: '.08em', textTransform: 'uppercase', color: '#9e9a93', marginBottom: '6px' }}>Password</label>
+                    <input type="password" value={teamForm.password} onChange={e => setTeamForm(f => ({...f, password: e.target.value}))} placeholder="Temporary password" style={{ width: '100%', padding: '10px 14px', border: '1px solid #e8e6e1', borderRadius: '8px', fontFamily: 'DM Sans, sans-serif', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '11px', letterSpacing: '.08em', textTransform: 'uppercase', color: '#9e9a93', marginBottom: '6px' }}>Role</label>
+                    <select value={teamForm.role} onChange={e => setTeamForm(f => ({...f, role: e.target.value}))} style={{ width: '100%', padding: '10px 14px', border: '1px solid #e8e6e1', borderRadius: '8px', fontFamily: 'DM Sans, sans-serif', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }}>
+                      <option value="team">Team</option>
+                      <option value="owner">Owner</option>
+                    </select>
+                  </div>
+                </div>
+                <div style={{ fontSize: '11px', color: '#9e9a93', marginBottom: '20px' }}>
+                  Initials will be auto-generated from the name.
+                </div>
+                <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                  <button onClick={() => setShowTeamModal(false)} style={{ padding: '10px 20px', border: '1px solid #e8e6e1', borderRadius: '8px', background: 'none', color: '#6b6560', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', fontSize: '13px' }}>Cancel</button>
+                  <button onClick={addTeamMember} style={{ padding: '10px 24px', border: 'none', borderRadius: '8px', background: '#b07a8a', color: 'white', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', fontSize: '13px', fontWeight: 500 }}>Add Member</button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
-      )
+      )}
 
       default:
         const meta = BIZ_LINES_META[page as keyof typeof BIZ_LINES_META]
