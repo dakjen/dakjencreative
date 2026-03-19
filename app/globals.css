@@ -1,0 +1,40 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --navy: #1C3557;
+    --navy-light: #243f68;
+    --navy-deep: #0f1f33;
+    --mauve: #b07a8a;
+    --mauve-light: #c9949f;
+    --mauve-pale: #f0e4e7;
+    --cream: #faf8f5;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--cream);
+    color: #1a1714;
+  }
+
+  input, select, textarea, button {
+    font-family: 'DM Sans', sans-serif;
+  }
+}
+
+@layer utilities {
+  .font-serif { font-family: 'Cormorant Garamond', serif; }
+
+  .scrollbar-hide::-webkit-scrollbar { display: none; }
+  .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0);    }
+}
+.animate-fadeUp { animation: fadeUp .25s ease forwards; }
