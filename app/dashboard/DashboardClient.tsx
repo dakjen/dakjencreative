@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { signOut } from 'next-auth/react'
 import { Session } from 'next-auth'
 import RevenueTracker from '@/components/RevenueTracker'
@@ -12,28 +12,17 @@ const BIZ_LINES_META = {
   community:  { label: 'Business Community', badge: 'Small Biz Support',   desc: 'Small business consulting & community support.'            },
 }
 
-const QUICK_LINKS = [
-  { icon: '📁', label: 'Google Drive', href: 'https://drive.google.com'            },
-  { icon: '📧', label: 'Gmail',        href: 'https://mail.google.com'             },
-  { icon: '💬', label: 'Slack',        href: 'https://slack.com'                   },
-  { icon: '📦', label: 'Box',          href: 'https://box.com'                     },
-  { icon: '💰', label: 'QuickBooks',   href: 'https://quickbooks.intuit.com'       },
-  { icon: '🎨', label: 'Canva',        href: 'https://canva.com'                   },
-  { icon: '📋', label: 'Notion',       href: 'https://notion.so'                   },
-  { icon: '🔗', label: 'LinkedIn',     href: 'https://linkedin.com'                },
-]
-
 const NAV = [
-  { id: 'overview',      label: 'Dashboard',      section: 'overview' },
-  { id: 'revenue',       label: 'Revenue Tracker',section: 'overview' },
-  { id: 'tasks',         label: 'Tasks',           section: 'overview' },
-  { id: 'djc',           label: 'DJC Marketing',   section: 'lines'   },
-  { id: 'notable',       label: 'Notable',         section: 'lines'   },
-  { id: 'elitewise',     label: 'Elitewise',       section: 'lines'   },
-  { id: 'websites',      label: 'Websites',        section: 'workspace'},
-  { id: 'integrations',  label: 'Integrations',    section: 'workspace'},
-  { id: 'financials',    label: 'Financials',      section: 'workspace'},
-  { id: 'team',          label: 'Team',            section: 'workspace'},
+  { id: 'overview',      label: 'Dashboard',      section: 'overview',  ownerOnly: false },
+  { id: 'revenue',       label: 'Revenue Tracker',section: 'overview',  ownerOnly: true  },
+  { id: 'tasks',         label: 'Tasks',           section: 'overview',  ownerOnly: false },
+  { id: 'djc',           label: 'DJC Marketing',   section: 'lines',     ownerOnly: false },
+  { id: 'notable',       label: 'Notable',         section: 'lines',     ownerOnly: false },
+  { id: 'elitewise',     label: 'Elitewise',       section: 'lines',     ownerOnly: false },
+  { id: 'websites',      label: 'Websites',        section: 'workspace', ownerOnly: false },
+  { id: 'integrations',  label: 'Integrations',    section: 'workspace', ownerOnly: true  },
+  { id: 'financials',    label: 'Financials',      section: 'workspace', ownerOnly: true  },
+  { id: 'team',          label: 'Team',            section: 'workspace', ownerOnly: true  },
 ]
 
 const PAGE_TITLES: Record<string, string> = {
@@ -45,12 +34,21 @@ const PAGE_TITLES: Record<string, string> = {
 
 // ── TASK TYPES ──
 interface Task { id: number; text: string; tag: string; due: string | null; assignee: string | null; done: boolean }
+interface WebsiteItem { id: number; name: string; url: string; description: string | null; icon: string; created_at: string }
+interface QuickLinkItem { id: number; name: string; url: string; icon: string; created_at: string }
 
 // ── STYLES ──
 const card: React.CSSProperties = { background: 'white', border: '1px solid #e8e6e1', borderRadius: '12px', padding: '24px' }
+const inputStyle: React.CSSProperties = { width: '100%', padding: '10px 14px', border: '1px solid #e8e6e1', borderRadius: '8px', fontFamily: 'DM Sans, sans-serif', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }
+const labelStyle: React.CSSProperties = { display: 'block', fontSize: '11px', letterSpacing: '.08em', textTransform: 'uppercase', color: '#9e9a93', marginBottom: '6px' }
 
 export default function DashboardClient({ session }: { session: Session }) {
-  const [page, setPage]         = useState('overview')
+  const [page, setPage]         = useState(() => {
+    if (typeof window !== 'undefined' && window.location.hash) {
+      return window.location.hash.slice(1) || 'overview'
+    }
+    return 'overview'
+  })
   const [tasks, setTasks]       = useState<Task[]>([])
   const [tasksLoaded, setTasksLoaded] = useState(false)
   const [taskFilter, setTaskFilter]   = useState('all')
@@ -66,10 +64,26 @@ export default function DashboardClient({ session }: { session: Session }) {
   const [teamForm, setTeamForm] = useState({ name: '', email: '', password: '', role: 'team', hourly_rate: '', weekly_hours: '', pay_schedule: '' })
   const [teamMsg, setTeamMsg]   = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
+  // ── WEBSITES STATE ──
+  const [websites, setWebsites] = useState<WebsiteItem[]>([])
+  const [websitesLoaded, setWebsitesLoaded] = useState(false)
+  const [showWebsiteModal, setShowWebsiteModal] = useState(false)
+  const [editingWebsite, setEditingWebsite] = useState<WebsiteItem | null>(null)
+  const [websiteForm, setWebsiteForm] = useState({ name: '', url: '', description: '', icon: '🌐' })
+
+  // ── QUICK LINKS STATE ──
+  const [quickLinks, setQuickLinks] = useState<QuickLinkItem[]>([])
+  const [quickLinksLoaded, setQuickLinksLoaded] = useState(false)
+  const [showQLModal, setShowQLModal] = useState(false)
+  const [editingQL, setEditingQL] = useState<QuickLinkItem | null>(null)
+  const [qlForm, setQLForm] = useState({ name: '', url: '', icon: '🔗' })
+
   const user     = session.user as any
+  const isOwner  = user.role === 'owner'
   const greeting = (() => { const h = new Date().getHours(); return h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening' })()
   const dateStr  = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
 
+  // ── LOAD DATA ──
   async function loadTasks() {
     if (tasksLoaded) return
     const res  = await fetch('/api/tasks')
@@ -86,6 +100,32 @@ export default function DashboardClient({ session }: { session: Session }) {
     setTeamLoaded(true)
   }
 
+  async function loadWebsites() {
+    if (websitesLoaded) return
+    const res  = await fetch('/api/websites')
+    const data = await res.json()
+    setWebsites(Array.isArray(data) ? data : [])
+    setWebsitesLoaded(true)
+  }
+
+  async function loadQuickLinks() {
+    if (quickLinksLoaded) return
+    const res  = await fetch('/api/quick-links')
+    const data = await res.json()
+    setQuickLinks(Array.isArray(data) ? data : [])
+    setQuickLinksLoaded(true)
+  }
+
+  // Load quick links on mount (needed for overview page) + restore page data
+  useEffect(() => {
+    loadQuickLinks()
+    // Load data for the restored page from hash
+    if (page === 'tasks') loadTasks()
+    if (page === 'team') loadTeam()
+    if (page === 'websites') loadWebsites()
+  }, [])
+
+  // ── TEAM CRUD ──
   async function addTeamMember() {
     if (!teamForm.name.trim() || !teamForm.email.trim() || !teamForm.password.trim()) return
     setTeamMsg(null)
@@ -151,10 +191,80 @@ export default function DashboardClient({ session }: { session: Session }) {
     setShowTeamModal(true)
   }
 
+  // ── WEBSITE CRUD ──
+  async function saveWebsite() {
+    if (!websiteForm.name.trim() || !websiteForm.url.trim()) return
+    const method = editingWebsite ? 'PATCH' : 'POST'
+    const body: any = { ...websiteForm }
+    if (editingWebsite) body.id = editingWebsite.id
+    if (!body.description) body.description = null
+    const res = await fetch('/api/websites', {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+    if (res.ok) {
+      const item = await res.json()
+      if (editingWebsite) {
+        setWebsites(ws => ws.map(w => w.id === item.id ? item : w))
+      } else {
+        setWebsites(ws => [...ws, item])
+      }
+      setShowWebsiteModal(false)
+      setEditingWebsite(null)
+      setWebsiteForm({ name: '', url: '', description: '', icon: '🌐' })
+    }
+  }
+
+  async function deleteWebsite(id: number) {
+    await fetch('/api/websites', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id }),
+    })
+    setWebsites(ws => ws.filter(w => w.id !== id))
+  }
+
+  // ── QUICK LINK CRUD ──
+  async function saveQuickLink() {
+    if (!qlForm.name.trim() || !qlForm.url.trim()) return
+    const method = editingQL ? 'PATCH' : 'POST'
+    const body: any = { ...qlForm }
+    if (editingQL) body.id = editingQL.id
+    const res = await fetch('/api/quick-links', {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+    if (res.ok) {
+      const item = await res.json()
+      if (editingQL) {
+        setQuickLinks(qs => qs.map(q => q.id === item.id ? item : q))
+      } else {
+        setQuickLinks(qs => [...qs, item])
+      }
+      setShowQLModal(false)
+      setEditingQL(null)
+      setQLForm({ name: '', url: '', icon: '🔗' })
+    }
+  }
+
+  async function deleteQuickLink(id: number) {
+    await fetch('/api/quick-links', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id }),
+    })
+    setQuickLinks(qs => qs.filter(q => q.id !== id))
+  }
+
+  // ── NAVIGATION ──
   function goTo(id: string) {
     setPage(id)
+    window.location.hash = id
     if (id === 'tasks') loadTasks()
     if (id === 'team') loadTeam()
+    if (id === 'websites') loadWebsites()
   }
 
   async function toggleTask(id: number, done: boolean) {
@@ -183,6 +293,9 @@ export default function DashboardClient({ session }: { session: Session }) {
   const tagBg: Record<string, string>     = { djc: 'rgba(28,53,87,.08)', notable: 'rgba(176,122,138,.12)', elitewise: 'rgba(99,102,241,.08)', fractional: 'rgba(5,150,105,.08)', community: 'rgba(217,119,6,.08)' }
   const tagLabel: Record<string, string>  = { djc: 'DJC Marketing', notable: 'Notable', elitewise: 'Elitewise', fractional: 'Fractional', community: 'Community' }
 
+  // Filter nav items by role
+  const filteredNav = NAV.filter(n => isOwner || !n.ownerOnly)
+
   // ── SIDEBAR ──
   const sidebar = (
     <nav style={{ width: '240px', background: '#0f1f33', height: '100vh', position: 'fixed', top: 0, left: 0, display: 'flex', flexDirection: 'column', borderRight: '1px solid rgba(255,255,255,.04)', zIndex: 50 }}>
@@ -200,32 +313,36 @@ export default function DashboardClient({ session }: { session: Session }) {
       </div>
 
       <div style={{ flex: 1, padding: '16px 0', overflowY: 'auto' }}>
-        {(['overview','lines','workspace'] as const).map(section => (
-          <div key={section}>
-            <div style={{ fontSize: '10px', letterSpacing: '.12em', textTransform: 'uppercase', color: 'rgba(255,255,255,.2)', padding: '12px 20px 4px' }}>
-              {section === 'overview' ? 'Overview' : section === 'lines' ? 'Business Lines' : 'Workspace'}
+        {(['overview','lines','workspace'] as const).map(section => {
+          const sectionItems = filteredNav.filter(n => n.section === section)
+          if (sectionItems.length === 0) return null
+          return (
+            <div key={section}>
+              <div style={{ fontSize: '10px', letterSpacing: '.12em', textTransform: 'uppercase', color: 'rgba(255,255,255,.2)', padding: '12px 20px 4px' }}>
+                {section === 'overview' ? 'Overview' : section === 'lines' ? 'Business Lines' : 'Workspace'}
+              </div>
+              {sectionItems.map(n => (
+                <button key={n.id} onClick={() => goTo(n.id)} style={{
+                  display: 'flex', alignItems: 'center', gap: '10px',
+                  width: '100%', padding: '9px 20px', textAlign: 'left',
+                  border: 'none',
+                  borderLeft: `2px solid ${page === n.id ? '#b07a8a' : 'transparent'}`,
+                  background: page === n.id ? 'rgba(176,122,138,.08)' : 'transparent',
+                  color: page === n.id ? 'white' : 'rgba(255,255,255,.5)',
+                  fontSize: '13px', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif',
+                  transition: 'all .15s',
+                }}>
+                  {n.label}
+                  {n.id === 'tasks' && openTasks.length > 0 && (
+                    <span style={{ marginLeft: 'auto', background: '#b07a8a', color: 'white', fontSize: '10px', padding: '1px 7px', borderRadius: '10px' }}>
+                      {openTasks.length}
+                    </span>
+                  )}
+                </button>
+              ))}
             </div>
-            {NAV.filter(n => n.section === section).map(n => (
-              <button key={n.id} onClick={() => goTo(n.id)} style={{
-                display: 'flex', alignItems: 'center', gap: '10px',
-                width: '100%', padding: '9px 20px', textAlign: 'left',
-                border: 'none',
-                borderLeft: `2px solid ${page === n.id ? '#b07a8a' : 'transparent'}`,
-                background: page === n.id ? 'rgba(176,122,138,.08)' : 'transparent',
-                color: page === n.id ? 'white' : 'rgba(255,255,255,.5)',
-                fontSize: '13px', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif',
-                transition: 'all .15s',
-              }}>
-                {n.label}
-                {n.id === 'tasks' && openTasks.length > 0 && (
-                  <span style={{ marginLeft: 'auto', background: '#b07a8a', color: 'white', fontSize: '10px', padding: '1px 7px', borderRadius: '10px' }}>
-                    {openTasks.length}
-                  </span>
-                )}
-              </button>
-            ))}
-          </div>
-        ))}
+          )
+        })}
       </div>
 
       <div style={{ padding: '16px 20px', borderTop: '1px solid rgba(255,255,255,.06)' }}>
@@ -246,27 +363,69 @@ export default function DashboardClient({ session }: { session: Session }) {
     </nav>
   )
 
+  // ── QUICK ACCESS PANEL (shared by overview) ──
+  const quickAccessPanel = (
+    <div style={card}>
+      <div style={{ fontSize: '13px', fontWeight: 500, color: '#1C3557', marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        Quick Access
+        {isOwner && (
+          <button onClick={() => { setEditingQL(null); setQLForm({ name: '', url: '', icon: '🔗' }); setShowQLModal(true) }}
+            style={{ background: 'none', border: 'none', color: '#b07a8a', fontSize: '12px', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}>
+            + Manage
+          </button>
+        )}
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '8px' }}>
+        {quickLinks.map(ql => (
+          <div key={ql.id} style={{ position: 'relative' }}>
+            <a href={ql.url} target="_blank" rel="noreferrer" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', padding: '12px 8px', background: '#f5f4f2', borderRadius: '8px', textDecoration: 'none', transition: 'background .15s' }}
+              onMouseEnter={e => (e.currentTarget.style.background = '#1C3557')}
+              onMouseLeave={e => (e.currentTarget.style.background = '#f5f4f2')}>
+              <span style={{ fontSize: '18px' }}>{ql.icon}</span>
+              <span style={{ fontSize: '10px', color: '#6b6560', textAlign: 'center' }}>{ql.name}</span>
+            </a>
+            {isOwner && (
+              <div style={{ position: 'absolute', top: '2px', right: '2px', display: 'flex', gap: '2px' }}>
+                <button onClick={() => { setEditingQL(ql); setQLForm({ name: ql.name, url: ql.url, icon: ql.icon }); setShowQLModal(true) }}
+                  style={{ background: 'rgba(255,255,255,.9)', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '9px', padding: '2px 4px', color: '#9e9a93' }}>
+                  Edit
+                </button>
+                <button onClick={() => deleteQuickLink(ql.id)}
+                  style={{ background: 'rgba(255,255,255,.9)', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '9px', padding: '2px 4px', color: '#dc2626' }}>
+                  ×
+                </button>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+
   // ── PAGE CONTENT ──
   const renderPage = () => {
     switch (page) {
 
       case 'overview': return (
         <div className="animate-fadeUp">
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '16px', marginBottom: '32px' }}>
-            {[
-              { label: '2025 Revenue',   value: '$203K', sub: 'Across all lines'    },
-              { label: 'Net Income',     value: '$37K',  sub: 'After expenses'      },
-              { label: 'Active Clients', value: '6+',    sub: 'Across service lines'},
-              { label: 'Open Tasks',     value: String(openTasks.length), sub: 'Assigned to team'},
-            ].map((m, i) => (
-              <div key={m.label} style={{ background: 'white', border: '1px solid #e8e6e1', borderRadius: '12px', padding: '20px 24px', position: 'relative', overflow: 'hidden' }}>
-                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '3px', background: i % 2 === 0 ? '#b07a8a' : '#1C3557' }} />
-                <div style={{ fontSize: '11px', letterSpacing: '.08em', textTransform: 'uppercase', color: '#9e9a93', marginBottom: '8px' }}>{m.label}</div>
-                <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '34px', fontWeight: 300, color: '#1C3557', lineHeight: 1, marginBottom: '4px' }}>{m.value}</div>
-                <div style={{ fontSize: '12px', color: '#9e9a93' }}>{m.sub}</div>
-              </div>
-            ))}
-          </div>
+          {/* Revenue stat cards — owner only */}
+          {isOwner && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '16px', marginBottom: '32px' }}>
+              {[
+                { label: '2025 Revenue',   value: '$203K', sub: 'Across all lines'    },
+                { label: 'Net Income',     value: '$37K',  sub: 'After expenses'      },
+                { label: 'Active Clients', value: '6+',    sub: 'Across service lines'},
+                { label: 'Open Tasks',     value: String(openTasks.length), sub: 'Assigned to team'},
+              ].map((m, i) => (
+                <div key={m.label} style={{ background: 'white', border: '1px solid #e8e6e1', borderRadius: '12px', padding: '20px 24px', position: 'relative', overflow: 'hidden' }}>
+                  <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '3px', background: i % 2 === 0 ? '#b07a8a' : '#1C3557' }} />
+                  <div style={{ fontSize: '11px', letterSpacing: '.08em', textTransform: 'uppercase', color: '#9e9a93', marginBottom: '8px' }}>{m.label}</div>
+                  <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '34px', fontWeight: 300, color: '#1C3557', lineHeight: 1, marginBottom: '4px' }}>{m.value}</div>
+                  <div style={{ fontSize: '12px', color: '#9e9a93' }}>{m.sub}</div>
+                </div>
+              ))}
+            </div>
+          )}
 
           <div style={{ fontSize: '11px', letterSpacing: '.1em', textTransform: 'uppercase', color: '#9e9a93', marginBottom: '14px' }}>Business Lines</div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '14px', marginBottom: '28px' }}>
@@ -281,34 +440,27 @@ export default function DashboardClient({ session }: { session: Session }) {
             ))}
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-            <div style={card}>
-              <div style={{ fontSize: '13px', fontWeight: 500, color: '#1C3557', marginBottom: '16px' }}>Quick Access</div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '8px' }}>
-                {QUICK_LINKS.map(ql => (
-                  <a key={ql.label} href={ql.href} target="_blank" rel="noreferrer" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', padding: '12px 8px', background: '#f5f4f2', borderRadius: '8px', textDecoration: 'none', transition: 'background .15s' }}
-                    onMouseEnter={e => (e.currentTarget.style.background = '#1C3557')}
-                    onMouseLeave={e => (e.currentTarget.style.background = '#f5f4f2')}>
-                    <span style={{ fontSize: '18px' }}>{ql.icon}</span>
-                    <span style={{ fontSize: '10px', color: '#6b6560', textAlign: 'center' }}>{ql.label}</span>
-                  </a>
-                ))}
+          {isOwner ? (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+              {quickAccessPanel}
+              <div style={card}>
+                <div style={{ fontSize: '13px', fontWeight: 500, color: '#1C3557', marginBottom: '12px', display: 'flex', justifyContent: 'space-between' }}>
+                  Revenue Snapshot
+                  <button onClick={() => goTo('revenue')} style={{ background: 'none', border: 'none', color: '#b07a8a', fontSize: '12px', cursor: 'pointer' }}>View tracker →</button>
+                </div>
+                <div style={{ fontSize: '12px', color: '#9e9a93', padding: '20px 0', textAlign: 'center' }}>
+                  <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '36px', color: '#1C3557', fontWeight: 300, marginBottom: '4px' }}>$203K</div>
+                  <div>2025 confirmed revenue</div>
+                  <button onClick={() => goTo('revenue')} style={{ marginTop: '12px', padding: '8px 16px', border: '1px solid #e8e6e1', borderRadius: '8px', background: 'none', fontSize: '12px', color: '#1C3557', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}>
+                    Add contracts & forecast →
+                  </button>
+                </div>
               </div>
             </div>
-            <div style={card}>
-              <div style={{ fontSize: '13px', fontWeight: 500, color: '#1C3557', marginBottom: '12px', display: 'flex', justifyContent: 'space-between' }}>
-                Revenue Snapshot
-                <button onClick={() => goTo('revenue')} style={{ background: 'none', border: 'none', color: '#b07a8a', fontSize: '12px', cursor: 'pointer' }}>View tracker →</button>
-              </div>
-              <div style={{ fontSize: '12px', color: '#9e9a93', padding: '20px 0', textAlign: 'center' }}>
-                <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '36px', color: '#1C3557', fontWeight: 300, marginBottom: '4px' }}>$203K</div>
-                <div>2025 confirmed revenue</div>
-                <button onClick={() => goTo('revenue')} style={{ marginTop: '12px', padding: '8px 16px', border: '1px solid #e8e6e1', borderRadius: '8px', background: 'none', fontSize: '12px', color: '#1C3557', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}>
-                  Add contracts & forecast →
-                </button>
-              </div>
-            </div>
-          </div>
+          ) : (
+            /* Employee view: just Quick Access full-width */
+            quickAccessPanel
+          )}
         </div>
       )
 
@@ -354,13 +506,13 @@ export default function DashboardClient({ session }: { session: Session }) {
               <div style={{ background: 'white', borderRadius: '16px', padding: '36px', width: '100%', maxWidth: '480px', boxShadow: '0 24px 60px rgba(0,0,0,.2)' }}>
                 <h2 style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '24px', color: '#1C3557', marginBottom: '24px' }}>Add Task</h2>
                 <div style={{ marginBottom: '16px' }}>
-                  <label style={{ display: 'block', fontSize: '11px', letterSpacing: '.08em', textTransform: 'uppercase', color: '#9e9a93', marginBottom: '6px' }}>Task</label>
-                  <input value={newTask.text} onChange={e => setNewTask(n => ({...n, text: e.target.value}))} onKeyDown={e => e.key === 'Enter' && addTask()} placeholder="e.g. Send proposal to UrbanCore" style={{ width: '100%', padding: '10px 14px', border: '1px solid #e8e6e1', borderRadius: '8px', fontFamily: 'DM Sans, sans-serif', fontSize: '13px', outline: 'none' }} />
+                  <label style={labelStyle}>Task</label>
+                  <input value={newTask.text} onChange={e => setNewTask(n => ({...n, text: e.target.value}))} onKeyDown={e => e.key === 'Enter' && addTask()} placeholder="e.g. Send proposal to UrbanCore" style={inputStyle} />
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
                   <div>
-                    <label style={{ display: 'block', fontSize: '11px', letterSpacing: '.08em', textTransform: 'uppercase', color: '#9e9a93', marginBottom: '6px' }}>Business Line</label>
-                    <select value={newTask.tag} onChange={e => setNewTask(n => ({...n, tag: e.target.value}))} style={{ width: '100%', padding: '10px 14px', border: '1px solid #e8e6e1', borderRadius: '8px', fontFamily: 'DM Sans, sans-serif', fontSize: '13px', outline: 'none' }}>
+                    <label style={labelStyle}>Business Line</label>
+                    <select value={newTask.tag} onChange={e => setNewTask(n => ({...n, tag: e.target.value}))} style={inputStyle}>
                       <option value="djc">DJC Marketing</option>
                       <option value="notable">Notable</option>
                       <option value="elitewise">Elitewise</option>
@@ -369,13 +521,13 @@ export default function DashboardClient({ session }: { session: Session }) {
                     </select>
                   </div>
                   <div>
-                    <label style={{ display: 'block', fontSize: '11px', letterSpacing: '.08em', textTransform: 'uppercase', color: '#9e9a93', marginBottom: '6px' }}>Due Date</label>
-                    <input type="date" value={newTask.due} onChange={e => setNewTask(n => ({...n, due: e.target.value}))} style={{ width: '100%', padding: '10px 14px', border: '1px solid #e8e6e1', borderRadius: '8px', fontFamily: 'DM Sans, sans-serif', fontSize: '13px', outline: 'none' }} />
+                    <label style={labelStyle}>Due Date</label>
+                    <input type="date" value={newTask.due} onChange={e => setNewTask(n => ({...n, due: e.target.value}))} style={inputStyle} />
                   </div>
                 </div>
                 <div style={{ marginBottom: '24px' }}>
-                  <label style={{ display: 'block', fontSize: '11px', letterSpacing: '.08em', textTransform: 'uppercase', color: '#9e9a93', marginBottom: '6px' }}>Assign To</label>
-                  <select value={newTask.assignee} onChange={e => setNewTask(n => ({...n, assignee: e.target.value}))} style={{ width: '100%', padding: '10px 14px', border: '1px solid #e8e6e1', borderRadius: '8px', fontFamily: 'DM Sans, sans-serif', fontSize: '13px', outline: 'none' }}>
+                  <label style={labelStyle}>Assign To</label>
+                  <select value={newTask.assignee} onChange={e => setNewTask(n => ({...n, assignee: e.target.value}))} style={inputStyle}>
                     {['Dakotah','Olivia','Jarea','Brittni','Team'].map(a => <option key={a}>{a}</option>)}
                   </select>
                 </div>
@@ -444,7 +596,7 @@ export default function DashboardClient({ session }: { session: Session }) {
               </div>
               <div style={{ fontSize: '12px', color: '#9e9a93', flex: 1 }}>{i.desc}</div>
               <a href={i.href} target="_blank" rel="noreferrer" style={{ padding: '8px 16px', borderRadius: '7px', fontSize: '12px', fontWeight: 500, background: i.connected ? '#f5f4f2' : '#1C3557', color: i.connected ? '#1C3557' : 'white', border: '1px solid', borderColor: i.connected ? '#e8e6e1' : '#1C3557', textDecoration: 'none', textAlign: 'center' }}>
-                {i.connected ? `Open ${i.name} →` : 'Connect →'}
+                  {i.connected ? `Open ${i.name} →` : 'Connect →'}
               </a>
             </div>
           ))}
@@ -452,25 +604,81 @@ export default function DashboardClient({ session }: { session: Session }) {
       )
 
       case 'websites': return (
-        <div className="animate-fadeUp" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-          {[
-            { icon:'🎨', name:'DakJen Creative LLC',    url:'dakjencreative.com',         href:'https://dakjencreative.com', desc:'Main brand website' },
-            { icon:'✍️', name:'Notable / Go Be Notable', url:'gobenotable.com',            href:'#',                         desc:'Brand presence platform' },
-            { icon:'✈️', name:'Elitewise Escapes',       url:'elitewiseescapes.com',       href:'#',                         desc:'Luxury travel curation' },
-            { icon:'🏢', name:'DJC Marketing',           url:'dakjencreative.com/marketing',href:'https://dakjencreative.com',desc:'Lease-up marketing' },
-          ].map(s => (
-            <a key={s.name} href={s.href} target="_blank" rel="noreferrer" style={{ ...card, display: 'flex', alignItems: 'center', gap: '16px', textDecoration: 'none', transition: 'all .2s' }}
-              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = '#1C3557'; (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)' }}
-              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = '#e8e6e1'; (e.currentTarget as HTMLElement).style.transform = '' }}>
-              <div style={{ width: '52px', height: '52px', borderRadius: '10px', background: '#f5f4f2', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px', flexShrink: 0 }}>{s.icon}</div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: '14px', fontWeight: 500, color: '#1C3557' }}>{s.name}</div>
-                <div style={{ fontSize: '12px', color: '#b07a8a' }}>{s.url}</div>
-                <div style={{ fontSize: '11px', color: '#9e9a93', marginTop: '2px' }}>{s.desc}</div>
+        <div className="animate-fadeUp">
+          {isOwner && (
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '16px' }}>
+              <button onClick={() => { setEditingWebsite(null); setWebsiteForm({ name: '', url: '', description: '', icon: '🌐' }); setShowWebsiteModal(true) }}
+                style={{ padding: '8px 18px', borderRadius: '8px', border: 'none', background: '#b07a8a', color: 'white', fontSize: '13px', fontWeight: 500, cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}>
+                + Add Website
+              </button>
+            </div>
+          )}
+
+          {!websitesLoaded ? (
+            <div style={{ textAlign: 'center', padding: '48px', color: '#9e9a93', fontSize: '13px' }}>Loading websites...</div>
+          ) : websites.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '48px', color: '#9e9a93', fontSize: '13px' }}>No websites yet.</div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+              {websites.map(s => (
+                <div key={s.id} style={{ ...card, display: 'flex', alignItems: 'center', gap: '16px', transition: 'all .2s' }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = '#1C3557'; (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)' }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = '#e8e6e1'; (e.currentTarget as HTMLElement).style.transform = '' }}>
+                  <div style={{ width: '52px', height: '52px', borderRadius: '10px', background: '#f5f4f2', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px', flexShrink: 0 }}>{s.icon}</div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: '14px', fontWeight: 500, color: '#1C3557' }}>{s.name}</div>
+                    <a href={s.url} target="_blank" rel="noreferrer" style={{ fontSize: '12px', color: '#b07a8a', textDecoration: 'none' }}>{s.url.replace(/^https?:\/\//, '')}</a>
+                    {s.description && <div style={{ fontSize: '11px', color: '#9e9a93', marginTop: '2px' }}>{s.description}</div>}
+                  </div>
+                  {isOwner ? (
+                    <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+                      <button onClick={() => { setEditingWebsite(s); setWebsiteForm({ name: s.name, url: s.url, description: s.description ?? '', icon: s.icon }); setShowWebsiteModal(true) }}
+                        style={{ background: 'none', border: 'none', color: '#9e9a93', cursor: 'pointer', fontSize: '12px' }}>Edit</button>
+                      <button onClick={() => deleteWebsite(s.id)}
+                        style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', fontSize: '12px' }}>Delete</button>
+                    </div>
+                  ) : (
+                    <a href={s.url} target="_blank" rel="noreferrer" style={{ color: '#e8e6e1', fontSize: '18px', textDecoration: 'none' }}>→</a>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Website Modal */}
+          {showWebsiteModal && (
+            <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(15,31,51,.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }} onClick={e => { if (e.target === e.currentTarget) { setShowWebsiteModal(false); setEditingWebsite(null) } }}>
+              <div style={{ background: 'white', borderRadius: '16px', padding: '36px', width: '100%', maxWidth: '480px', boxShadow: '0 24px 60px rgba(0,0,0,.2)' }}>
+                <h2 style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '24px', color: '#1C3557', marginBottom: '24px' }}>
+                  {editingWebsite ? 'Edit Website' : 'Add Website'}
+                </h2>
+                <div style={{ display: 'grid', gridTemplateColumns: '60px 1fr', gap: '12px', marginBottom: '16px' }}>
+                  <div>
+                    <label style={labelStyle}>Icon</label>
+                    <input value={websiteForm.icon} onChange={e => setWebsiteForm(f => ({...f, icon: e.target.value}))} style={inputStyle} />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Name</label>
+                    <input value={websiteForm.name} onChange={e => setWebsiteForm(f => ({...f, name: e.target.value}))} placeholder="My Website" style={inputStyle} />
+                  </div>
+                </div>
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={labelStyle}>URL</label>
+                  <input value={websiteForm.url} onChange={e => setWebsiteForm(f => ({...f, url: e.target.value}))} placeholder="https://example.com" style={inputStyle} />
+                </div>
+                <div style={{ marginBottom: '24px' }}>
+                  <label style={labelStyle}>Description</label>
+                  <input value={websiteForm.description} onChange={e => setWebsiteForm(f => ({...f, description: e.target.value}))} placeholder="Short description" style={inputStyle} />
+                </div>
+                <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                  <button onClick={() => { setShowWebsiteModal(false); setEditingWebsite(null) }} style={{ padding: '10px 20px', border: '1px solid #e8e6e1', borderRadius: '8px', background: 'none', color: '#6b6560', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', fontSize: '13px' }}>Cancel</button>
+                  <button onClick={saveWebsite} style={{ padding: '10px 24px', border: 'none', borderRadius: '8px', background: '#b07a8a', color: 'white', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', fontSize: '13px', fontWeight: 500 }}>
+                    {editingWebsite ? 'Save Changes' : 'Add Website'}
+                  </button>
+                </div>
               </div>
-              <span style={{ color: '#e8e6e1', fontSize: '18px' }}>→</span>
-            </a>
-          ))}
+            </div>
+          )}
         </div>
       )
 
@@ -478,7 +686,6 @@ export default function DashboardClient({ session }: { session: Session }) {
         const memberColors = ['#1C3557','#b07a8a','#6366f1','#0e7490','#16a34a','#d97706']
         return (
         <div className="animate-fadeUp">
-          {/* Header row with Add button */}
           {user.role === 'owner' && (
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '16px' }}>
               <button onClick={() => { setTeamMsg(null); setEditingMember(null); setTeamForm({ name: '', email: '', password: '', role: 'team', hourly_rate: '', weekly_hours: '', pay_schedule: '' }); setShowTeamModal(true) }} style={{ padding: '8px 18px', borderRadius: '8px', border: 'none', background: '#b07a8a', color: 'white', fontSize: '13px', fontWeight: 500, cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}>
@@ -487,14 +694,12 @@ export default function DashboardClient({ session }: { session: Session }) {
             </div>
           )}
 
-          {/* Success / error banner */}
           {teamMsg && (
             <div style={{ padding: '10px 16px', borderRadius: '8px', marginBottom: '16px', fontSize: '13px', background: teamMsg.type === 'success' ? 'rgba(22,163,74,.08)' : 'rgba(220,38,38,.08)', color: teamMsg.type === 'success' ? '#16a34a' : '#dc2626', border: `1px solid ${teamMsg.type === 'success' ? 'rgba(22,163,74,.2)' : 'rgba(220,38,38,.2)'}` }}>
               {teamMsg.text}
             </div>
           )}
 
-          {/* Team member cards */}
           {!teamLoaded ? (
             <div style={{ textAlign: 'center', padding: '48px', color: '#9e9a93', fontSize: '13px' }}>Loading team...</div>
           ) : teamMembers.length === 0 ? (
@@ -524,7 +729,6 @@ export default function DashboardClient({ session }: { session: Session }) {
             </div>
           )}
 
-          {/* Add / Edit Team Member Modal */}
           {showTeamModal && (
             <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(15,31,51,.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }} onClick={e => { if (e.target === e.currentTarget) { setShowTeamModal(false); setEditingMember(null) } }}>
               <div style={{ background: 'white', borderRadius: '16px', padding: '36px', width: '100%', maxWidth: '480px', boxShadow: '0 24px 60px rgba(0,0,0,.2)' }}>
@@ -537,21 +741,21 @@ export default function DashboardClient({ session }: { session: Session }) {
                 {!editingMember && (
                   <>
                     <div style={{ marginBottom: '16px' }}>
-                      <label style={{ display: 'block', fontSize: '11px', letterSpacing: '.08em', textTransform: 'uppercase', color: '#9e9a93', marginBottom: '6px' }}>Full Name</label>
-                      <input value={teamForm.name} onChange={e => setTeamForm(f => ({...f, name: e.target.value}))} placeholder="Jane Smith" style={{ width: '100%', padding: '10px 14px', border: '1px solid #e8e6e1', borderRadius: '8px', fontFamily: 'DM Sans, sans-serif', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
+                      <label style={labelStyle}>Full Name</label>
+                      <input value={teamForm.name} onChange={e => setTeamForm(f => ({...f, name: e.target.value}))} placeholder="Jane Smith" style={inputStyle} />
                     </div>
                     <div style={{ marginBottom: '16px' }}>
-                      <label style={{ display: 'block', fontSize: '11px', letterSpacing: '.08em', textTransform: 'uppercase', color: '#9e9a93', marginBottom: '6px' }}>Email</label>
-                      <input type="email" value={teamForm.email} onChange={e => setTeamForm(f => ({...f, email: e.target.value}))} placeholder="jane@dakjencreative.com" style={{ width: '100%', padding: '10px 14px', border: '1px solid #e8e6e1', borderRadius: '8px', fontFamily: 'DM Sans, sans-serif', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
+                      <label style={labelStyle}>Email</label>
+                      <input type="email" value={teamForm.email} onChange={e => setTeamForm(f => ({...f, email: e.target.value}))} placeholder="jane@dakjencreative.com" style={inputStyle} />
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
                       <div>
-                        <label style={{ display: 'block', fontSize: '11px', letterSpacing: '.08em', textTransform: 'uppercase', color: '#9e9a93', marginBottom: '6px' }}>Password</label>
-                        <input type="password" value={teamForm.password} onChange={e => setTeamForm(f => ({...f, password: e.target.value}))} placeholder="Temporary password" style={{ width: '100%', padding: '10px 14px', border: '1px solid #e8e6e1', borderRadius: '8px', fontFamily: 'DM Sans, sans-serif', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
+                        <label style={labelStyle}>Password</label>
+                        <input type="password" value={teamForm.password} onChange={e => setTeamForm(f => ({...f, password: e.target.value}))} placeholder="Temporary password" style={inputStyle} />
                       </div>
                       <div>
-                        <label style={{ display: 'block', fontSize: '11px', letterSpacing: '.08em', textTransform: 'uppercase', color: '#9e9a93', marginBottom: '6px' }}>Role</label>
-                        <select value={teamForm.role} onChange={e => setTeamForm(f => ({...f, role: e.target.value}))} style={{ width: '100%', padding: '10px 14px', border: '1px solid #e8e6e1', borderRadius: '8px', fontFamily: 'DM Sans, sans-serif', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }}>
+                        <label style={labelStyle}>Role</label>
+                        <select value={teamForm.role} onChange={e => setTeamForm(f => ({...f, role: e.target.value}))} style={inputStyle}>
                           <option value="team">Team</option>
                           <option value="owner">Owner</option>
                         </select>
@@ -562,17 +766,17 @@ export default function DashboardClient({ session }: { session: Session }) {
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
                   <div>
-                    <label style={{ display: 'block', fontSize: '11px', letterSpacing: '.08em', textTransform: 'uppercase', color: '#9e9a93', marginBottom: '6px' }}>Hourly Rate ($)</label>
-                    <input type="number" value={teamForm.hourly_rate} onChange={e => setTeamForm(f => ({...f, hourly_rate: e.target.value}))} placeholder="e.g. 62" style={{ width: '100%', padding: '10px 14px', border: '1px solid #e8e6e1', borderRadius: '8px', fontFamily: 'DM Sans, sans-serif', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
+                    <label style={labelStyle}>Hourly Rate ($)</label>
+                    <input type="number" value={teamForm.hourly_rate} onChange={e => setTeamForm(f => ({...f, hourly_rate: e.target.value}))} placeholder="e.g. 62" style={inputStyle} />
                   </div>
                   <div>
-                    <label style={{ display: 'block', fontSize: '11px', letterSpacing: '.08em', textTransform: 'uppercase', color: '#9e9a93', marginBottom: '6px' }}>Weekly Hours</label>
-                    <input type="number" value={teamForm.weekly_hours} onChange={e => setTeamForm(f => ({...f, weekly_hours: e.target.value}))} placeholder="30" style={{ width: '100%', padding: '10px 14px', border: '1px solid #e8e6e1', borderRadius: '8px', fontFamily: 'DM Sans, sans-serif', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
+                    <label style={labelStyle}>Weekly Hours</label>
+                    <input type="number" value={teamForm.weekly_hours} onChange={e => setTeamForm(f => ({...f, weekly_hours: e.target.value}))} placeholder="30" style={inputStyle} />
                   </div>
                 </div>
                 <div style={{ marginBottom: '24px' }}>
-                  <label style={{ display: 'block', fontSize: '11px', letterSpacing: '.08em', textTransform: 'uppercase', color: '#9e9a93', marginBottom: '6px' }}>Pay Schedule</label>
-                  <select value={teamForm.pay_schedule} onChange={e => setTeamForm(f => ({...f, pay_schedule: e.target.value}))} style={{ width: '100%', padding: '10px 14px', border: '1px solid #e8e6e1', borderRadius: '8px', fontFamily: 'DM Sans, sans-serif', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }}>
+                  <label style={labelStyle}>Pay Schedule</label>
+                  <select value={teamForm.pay_schedule} onChange={e => setTeamForm(f => ({...f, pay_schedule: e.target.value}))} style={inputStyle}>
                     <option value="">None</option>
                     <option value="1st & 15th">1st & 15th</option>
                     <option value="Bi-weekly">Bi-weekly</option>
@@ -624,6 +828,37 @@ export default function DashboardClient({ session }: { session: Session }) {
           {renderPage()}
         </div>
       </div>
+
+      {/* Quick Link Modal (global since used from overview) */}
+      {showQLModal && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(15,31,51,.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }} onClick={e => { if (e.target === e.currentTarget) { setShowQLModal(false); setEditingQL(null) } }}>
+          <div style={{ background: 'white', borderRadius: '16px', padding: '36px', width: '100%', maxWidth: '420px', boxShadow: '0 24px 60px rgba(0,0,0,.2)' }}>
+            <h2 style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '24px', color: '#1C3557', marginBottom: '24px' }}>
+              {editingQL ? 'Edit Quick Link' : 'Add Quick Link'}
+            </h2>
+            <div style={{ display: 'grid', gridTemplateColumns: '60px 1fr', gap: '12px', marginBottom: '16px' }}>
+              <div>
+                <label style={labelStyle}>Icon</label>
+                <input value={qlForm.icon} onChange={e => setQLForm(f => ({...f, icon: e.target.value}))} style={inputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>Name</label>
+                <input value={qlForm.name} onChange={e => setQLForm(f => ({...f, name: e.target.value}))} placeholder="Tool name" style={inputStyle} />
+              </div>
+            </div>
+            <div style={{ marginBottom: '24px' }}>
+              <label style={labelStyle}>URL</label>
+              <input value={qlForm.url} onChange={e => setQLForm(f => ({...f, url: e.target.value}))} placeholder="https://example.com" style={inputStyle} />
+            </div>
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+              <button onClick={() => { setShowQLModal(false); setEditingQL(null) }} style={{ padding: '10px 20px', border: '1px solid #e8e6e1', borderRadius: '8px', background: 'none', color: '#6b6560', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', fontSize: '13px' }}>Cancel</button>
+              <button onClick={saveQuickLink} style={{ padding: '10px 24px', border: 'none', borderRadius: '8px', background: '#b07a8a', color: 'white', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', fontSize: '13px', fontWeight: 500 }}>
+                {editingQL ? 'Save Changes' : 'Add Link'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

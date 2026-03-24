@@ -44,8 +44,29 @@ export const contracts = pgTable('contracts', {
   createdAt: timestamp('created_at').defaultNow(),
 })
 
+export const websites = pgTable('websites', {
+  id: serial('id').primaryKey(),
+  name: text('name').notNull(),
+  url: text('url').notNull(),
+  description: text('description'),
+  icon: varchar('icon', { length: 10 }).notNull().default('🌐'),
+  createdBy: integer('created_by').references(() => users.id),
+  createdAt: timestamp('created_at').defaultNow(),
+})
+
+export const quickLinks = pgTable('quick_links', {
+  id: serial('id').primaryKey(),
+  name: text('name').notNull(),
+  url: text('url').notNull(),
+  icon: varchar('icon', { length: 10 }).notNull().default('🔗'),
+  createdBy: integer('created_by').references(() => users.id),
+  createdAt: timestamp('created_at').defaultNow(),
+})
+
 export type User        = typeof users.$inferSelect
 export type Task        = typeof tasks.$inferSelect
 export type NewTask     = typeof tasks.$inferInsert
 export type Contract    = typeof contracts.$inferSelect
 export type NewContract = typeof contracts.$inferInsert
+export type Website     = typeof websites.$inferSelect
+export type QuickLink   = typeof quickLinks.$inferSelect
