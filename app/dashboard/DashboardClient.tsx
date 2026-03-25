@@ -36,7 +36,7 @@ const PAGE_TITLES: Record<string, string> = {
 // ── TASK TYPES ──
 interface Task { id: number; text: string; tag: string; due: string | null; assignee: string | null; done: boolean }
 interface WebsiteItem { id: number; name: string; url: string; description: string | null; icon: string; created_at: string }
-interface QuickLinkItem { id: number; name: string; url: string; icon: string; created_at: string }
+interface QuickLinkItem { id: number; name: string; url: string; icon: string; category: string; created_at: string }
 interface VaultEntry { id: number; label: string; username: string | null; password: string; url: string | null; notes: string | null }
 
 // ── STYLES ──
@@ -78,7 +78,7 @@ export default function DashboardClient({ session }: { session: Session }) {
   const [quickLinksLoaded, setQuickLinksLoaded] = useState(false)
   const [showQLModal, setShowQLModal] = useState(false)
   const [editingQL, setEditingQL] = useState<QuickLinkItem | null>(null)
-  const [qlForm, setQLForm] = useState({ name: '', url: '', icon: '🔗' })
+  const [qlForm, setQLForm] = useState({ name: '', url: '', icon: '🔗', category: 'app' })
 
   // ── VAULT STATE ──
   const [vault, setVault] = useState<VaultEntry[]>([])
@@ -138,9 +138,8 @@ export default function DashboardClient({ session }: { session: Session }) {
   // Load quick links on mount (needed for overview page) + restore page data
   useEffect(() => {
     loadQuickLinks()
-    // Load data for the restored page from hash
+    loadTeam() // needed for task assignee dropdown
     if (page === 'tasks') loadTasks()
-    if (page === 'team') loadTeam()
     if (page === 'websites') loadWebsites()
     if (page === 'vault') loadVault()
   }, [])
@@ -274,7 +273,7 @@ export default function DashboardClient({ session }: { session: Session }) {
       }
       setShowQLModal(false)
       setEditingQL(null)
-      setQLForm({ name: '', url: '', icon: '🔗' })
+      setQLForm({ name: '', url: '', icon: '🔗', category: 'app' })
     }
   }
 
@@ -440,40 +439,51 @@ export default function DashboardClient({ session }: { session: Session }) {
   )
 
   // ── QUICK ACCESS PANEL (shared by overview) ──
+  const renderQLGrid = (items: QuickLinkItem[]) => (
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '8px' }}>
+      {items.map(ql => (
+        <div key={ql.id} style={{ position: 'relative' }}>
+          <a href={ql.url} target="_blank" rel="noreferrer" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', padding: '12px 8px', background: '#f5f4f2', borderRadius: '8px', textDecoration: 'none', transition: 'background .15s' }}
+            onMouseEnter={e => (e.currentTarget.style.background = '#1C3557')}
+            onMouseLeave={e => (e.currentTarget.style.background = '#f5f4f2')}>
+            <span style={{ fontSize: '18px' }}>{ql.icon}</span>
+            <span style={{ fontSize: '10px', color: '#6b6560', textAlign: 'center' }}>{ql.name}</span>
+          </a>
+          {isOwner && (
+            <div style={{ position: 'absolute', top: '2px', right: '2px', display: 'flex', gap: '2px' }}>
+              <button onClick={() => { setEditingQL(ql); setQLForm({ name: ql.name, url: ql.url, icon: ql.icon, category: ql.category ?? 'app' }); setShowQLModal(true) }}
+                style={{ background: 'rgba(255,255,255,.9)', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '9px', padding: '2px 4px', color: '#9e9a93' }}>
+                Edit
+              </button>
+              <button onClick={() => deleteQuickLink(ql.id)}
+                style={{ background: 'rgba(255,255,255,.9)', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '9px', padding: '2px 4px', color: '#dc2626' }}>
+                ×
+              </button>
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  )
+
+  const qlApps  = quickLinks.filter(ql => ql.category === 'app')
+  const qlTools = quickLinks.filter(ql => ql.category === 'tool')
+
   const quickAccessPanel = (
-    <div style={card}>
-      <div style={{ fontSize: '13px', fontWeight: 500, color: '#1C3557', marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        Quick Access
-        {isOwner && (
-          <button onClick={() => { setEditingQL(null); setQLForm({ name: '', url: '', icon: '🔗' }); setShowQLModal(true) }}
-            style={{ background: 'none', border: 'none', color: '#b07a8a', fontSize: '12px', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}>
-            + Manage
-          </button>
-        )}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+      <div style={card}>
+        <div style={{ fontSize: '13px', fontWeight: 500, color: '#1C3557', marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          Apps
+          {isOwner && <button onClick={() => { setEditingQL(null); setQLForm({ name: '', url: '', icon: '🔗', category: 'app' }); setShowQLModal(true) }} style={{ background: 'none', border: 'none', color: '#b07a8a', fontSize: '12px', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}>+ Add</button>}
+        </div>
+        {qlApps.length > 0 ? renderQLGrid(qlApps) : <div style={{ fontSize: '12px', color: '#9e9a93' }}>No apps yet.</div>}
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '8px' }}>
-        {quickLinks.map(ql => (
-          <div key={ql.id} style={{ position: 'relative' }}>
-            <a href={ql.url} target="_blank" rel="noreferrer" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', padding: '12px 8px', background: '#f5f4f2', borderRadius: '8px', textDecoration: 'none', transition: 'background .15s' }}
-              onMouseEnter={e => (e.currentTarget.style.background = '#1C3557')}
-              onMouseLeave={e => (e.currentTarget.style.background = '#f5f4f2')}>
-              <span style={{ fontSize: '18px' }}>{ql.icon}</span>
-              <span style={{ fontSize: '10px', color: '#6b6560', textAlign: 'center' }}>{ql.name}</span>
-            </a>
-            {isOwner && (
-              <div style={{ position: 'absolute', top: '2px', right: '2px', display: 'flex', gap: '2px' }}>
-                <button onClick={() => { setEditingQL(ql); setQLForm({ name: ql.name, url: ql.url, icon: ql.icon }); setShowQLModal(true) }}
-                  style={{ background: 'rgba(255,255,255,.9)', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '9px', padding: '2px 4px', color: '#9e9a93' }}>
-                  Edit
-                </button>
-                <button onClick={() => deleteQuickLink(ql.id)}
-                  style={{ background: 'rgba(255,255,255,.9)', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '9px', padding: '2px 4px', color: '#dc2626' }}>
-                  ×
-                </button>
-              </div>
-            )}
-          </div>
-        ))}
+      <div style={card}>
+        <div style={{ fontSize: '13px', fontWeight: 500, color: '#1C3557', marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          Custom Tools
+          {isOwner && <button onClick={() => { setEditingQL(null); setQLForm({ name: '', url: '', icon: '🔗', category: 'tool' }); setShowQLModal(true) }} style={{ background: 'none', border: 'none', color: '#b07a8a', fontSize: '12px', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}>+ Add</button>}
+        </div>
+        {qlTools.length > 0 ? renderQLGrid(qlTools) : <div style={{ fontSize: '12px', color: '#9e9a93' }}>No custom tools yet.</div>}
       </div>
     </div>
   )
@@ -859,7 +869,7 @@ export default function DashboardClient({ session }: { session: Session }) {
             <div style={{ marginBottom: '24px' }}>
               <label style={labelStyle}>Assign To</label>
               <select value={newTask.assignee} onChange={e => setNewTask(n => ({...n, assignee: e.target.value}))} style={inputStyle}>
-                {['Dakotah','Olivia','Jarea','Brittni','Team'].map(a => <option key={a}>{a}</option>)}
+                {[...teamMembers.map(m => m.name.split(' ')[0]), 'Team'].map(a => <option key={a}>{a}</option>)}
               </select>
             </div>
             <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
@@ -1012,9 +1022,16 @@ export default function DashboardClient({ session }: { session: Session }) {
                 <input value={qlForm.name} onChange={e => setQLForm(f => ({...f, name: e.target.value}))} placeholder="Tool name" style={inputStyle} />
               </div>
             </div>
-            <div style={{ marginBottom: '24px' }}>
+            <div style={{ marginBottom: '16px' }}>
               <label style={labelStyle}>URL</label>
               <input value={qlForm.url} onChange={e => setQLForm(f => ({...f, url: e.target.value}))} placeholder="https://example.com" style={inputStyle} />
+            </div>
+            <div style={{ marginBottom: '24px' }}>
+              <label style={labelStyle}>Category</label>
+              <select value={qlForm.category} onChange={e => setQLForm(f => ({...f, category: e.target.value}))} style={inputStyle}>
+                <option value="app">Apps</option>
+                <option value="tool">Custom Tools</option>
+              </select>
             </div>
             <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
               <button onClick={() => { setShowQLModal(false); setEditingQL(null) }} style={{ padding: '10px 20px', border: '1px solid #e8e6e1', borderRadius: '8px', background: 'none', color: '#6b6560', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', fontSize: '13px' }}>Cancel</button>

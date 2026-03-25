@@ -59,6 +59,7 @@ export const quickLinks = pgTable('quick_links', {
   name: text('name').notNull(),
   url: text('url').notNull(),
   icon: varchar('icon', { length: 10 }).notNull().default('🔗'),
+  category: varchar('category', { length: 20 }).notNull().default('app'),
   createdBy: integer('created_by').references(() => users.id),
   createdAt: timestamp('created_at').defaultNow(),
 })
