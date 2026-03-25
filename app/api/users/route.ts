@@ -53,23 +53,57 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: 'Owner only' }, { status: 403 })
   }
 
-  const { id, hourly_rate, weekly_hours, pay_schedule } = await req.json()
+  const { id, name, email, role, password, hourly_rate, weekly_hours, pay_schedule } = await req.json()
   if (!id) {
     return NextResponse.json({ error: 'id required' }, { status: 400 })
   }
 
   const db = sql()
-  const rows = await db`
-    UPDATE users
-    SET hourly_rate = ${hourly_rate ?? null},
-        weekly_hours = ${weekly_hours ?? null},
-        pay_schedule = ${pay_schedule ?? null}
-    WHERE id = ${id}
-    RETURNING id, name, email, role, initials, hourly_rate, weekly_hours, pay_schedule
-  `
 
-  if (rows.length === 0) {
+  // Fetch current values to use as fallbacks
+  const current = await db`SELECT name, email, role, initials FROM users WHERE id = ${id}`
+  if (current.length === 0) {
     return NextResponse.json({ error: 'User not found' }, { status: 404 })
+  }
+
+  const newName = name ?? current[0].name
+  const newEmail = email ? email.toLowerCase() : current[0].email
+  const newRole = role ?? current[0].role
+  const newInitials = newName.slice(0, 2).toUpperCase()
+
+  let rows
+  try {
+    if (password) {
+      const hash = await bcrypt.hash(password, 12)
+      rows = await db`
+        UPDATE users
+        SET name = ${newName},
+            email = ${newEmail},
+            role = ${newRole},
+            initials = ${newInitials},
+            password = ${hash},
+            hourly_rate = ${hourly_rate ?? null},
+            weekly_hours = ${weekly_hours ?? null},
+            pay_schedule = ${pay_schedule ?? null}
+        WHERE id = ${id}
+        RETURNING id, name, email, role, initials, hourly_rate, weekly_hours, pay_schedule
+      `
+    } else {
+      rows = await db`
+        UPDATE users
+        SET name = ${newName},
+            email = ${newEmail},
+            role = ${newRole},
+            initials = ${newInitials},
+            hourly_rate = ${hourly_rate ?? null},
+            weekly_hours = ${weekly_hours ?? null},
+            pay_schedule = ${pay_schedule ?? null}
+        WHERE id = ${id}
+        RETURNING id, name, email, role, initials, hourly_rate, weekly_hours, pay_schedule
+      `
+    }
+  } catch {
+    return NextResponse.json({ error: 'Email already exists' }, { status: 409 })
   }
 
   return NextResponse.json(rows[0])

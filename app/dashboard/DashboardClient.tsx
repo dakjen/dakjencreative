@@ -157,10 +157,14 @@ export default function DashboardClient({ session }: { session: Session }) {
     setTeamMsg(null)
     const body: any = {
       id: editingMember.id,
+      name: teamForm.name.trim() || undefined,
+      email: teamForm.email.trim() || undefined,
+      role: teamForm.role || undefined,
       hourly_rate: teamForm.hourly_rate ? Number(teamForm.hourly_rate) : null,
       weekly_hours: teamForm.weekly_hours ? Number(teamForm.weekly_hours) : null,
       pay_schedule: teamForm.pay_schedule || null,
     }
+    if (teamForm.password.trim()) body.password = teamForm.password.trim()
     const res = await fetch('/api/users', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -738,31 +742,27 @@ export default function DashboardClient({ session }: { session: Session }) {
                   <div style={{ padding: '8px 14px', borderRadius: '6px', marginBottom: '16px', fontSize: '12px', background: 'rgba(220,38,38,.08)', color: '#dc2626', border: '1px solid rgba(220,38,38,.2)' }}>{teamMsg.text}</div>
                 )}
 
-                {!editingMember && (
-                  <>
-                    <div style={{ marginBottom: '16px' }}>
-                      <label style={labelStyle}>Full Name</label>
-                      <input value={teamForm.name} onChange={e => setTeamForm(f => ({...f, name: e.target.value}))} placeholder="Jane Smith" style={inputStyle} />
-                    </div>
-                    <div style={{ marginBottom: '16px' }}>
-                      <label style={labelStyle}>Email</label>
-                      <input type="email" value={teamForm.email} onChange={e => setTeamForm(f => ({...f, email: e.target.value}))} placeholder="jane@dakjencreative.com" style={inputStyle} />
-                    </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
-                      <div>
-                        <label style={labelStyle}>Password</label>
-                        <input type="password" value={teamForm.password} onChange={e => setTeamForm(f => ({...f, password: e.target.value}))} placeholder="Temporary password" style={inputStyle} />
-                      </div>
-                      <div>
-                        <label style={labelStyle}>Role</label>
-                        <select value={teamForm.role} onChange={e => setTeamForm(f => ({...f, role: e.target.value}))} style={inputStyle}>
-                          <option value="team">Team</option>
-                          <option value="owner">Owner</option>
-                        </select>
-                      </div>
-                    </div>
-                  </>
-                )}
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={labelStyle}>Full Name</label>
+                  <input value={teamForm.name} onChange={e => setTeamForm(f => ({...f, name: e.target.value}))} placeholder="Jane Smith" style={inputStyle} />
+                </div>
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={labelStyle}>Email</label>
+                  <input type="email" value={teamForm.email} onChange={e => setTeamForm(f => ({...f, email: e.target.value}))} placeholder="jane@dakjencreative.com" style={inputStyle} />
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+                  <div>
+                    <label style={labelStyle}>{editingMember ? 'New Password' : 'Password'}</label>
+                    <input type="password" value={teamForm.password} onChange={e => setTeamForm(f => ({...f, password: e.target.value}))} placeholder={editingMember ? 'Leave blank to keep' : 'Temporary password'} style={inputStyle} />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Role</label>
+                    <select value={teamForm.role} onChange={e => setTeamForm(f => ({...f, role: e.target.value}))} style={inputStyle}>
+                      <option value="team">Team</option>
+                      <option value="owner">Owner</option>
+                    </select>
+                  </div>
+                </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
                   <div>
@@ -785,11 +785,9 @@ export default function DashboardClient({ session }: { session: Session }) {
                   </select>
                 </div>
 
-                {!editingMember && (
-                  <div style={{ fontSize: '11px', color: '#9e9a93', marginBottom: '20px' }}>
-                    Initials will be auto-generated from the name.
-                  </div>
-                )}
+                <div style={{ fontSize: '11px', color: '#9e9a93', marginBottom: '20px' }}>
+                  Initials will be auto-generated from the name.
+                </div>
                 <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
                   <button onClick={() => { setShowTeamModal(false); setEditingMember(null) }} style={{ padding: '10px 20px', border: '1px solid #e8e6e1', borderRadius: '8px', background: 'none', color: '#6b6560', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', fontSize: '13px' }}>Cancel</button>
                   <button onClick={editingMember ? updateTeamMember : addTeamMember} style={{ padding: '10px 24px', border: 'none', borderRadius: '8px', background: '#b07a8a', color: 'white', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', fontSize: '13px', fontWeight: 500 }}>{editingMember ? 'Save Changes' : 'Add Member'}</button>
