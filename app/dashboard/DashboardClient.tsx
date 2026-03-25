@@ -573,8 +573,8 @@ export default function DashboardClient({ session }: { session: Session }) {
           </div>
 
           {showTaskModal && (
-            <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(15,31,51,.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }} onClick={e => { if (e.target === e.currentTarget) setShowTaskModal(false) }}>
-              <div style={{ background: 'white', borderRadius: '16px', padding: '36px', width: '100%', maxWidth: '480px', boxShadow: '0 24px 60px rgba(0,0,0,.2)' }}>
+            <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 200, background: 'rgba(15,31,51,.6)', backdropFilter: 'blur(4px)', overflowY: 'auto' }} onClick={e => { if (e.target === e.currentTarget) setShowTaskModal(false) }}>
+              <div style={{ background: 'white', borderRadius: '16px', padding: '36px', width: 'calc(100% - 40px)', maxWidth: '480px', boxShadow: '0 24px 60px rgba(0,0,0,.2)', margin: '20px auto' }}>
                 <h2 style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '24px', color: '#1C3557', marginBottom: '24px' }}>Add Task</h2>
                 <div style={{ marginBottom: '16px' }}>
                   <label style={labelStyle}>Task</label>
@@ -718,8 +718,8 @@ export default function DashboardClient({ session }: { session: Session }) {
 
           {/* Website Modal */}
           {showWebsiteModal && (
-            <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(15,31,51,.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }} onClick={e => { if (e.target === e.currentTarget) { setShowWebsiteModal(false); setEditingWebsite(null) } }}>
-              <div style={{ background: 'white', borderRadius: '16px', padding: '36px', width: '100%', maxWidth: '480px', boxShadow: '0 24px 60px rgba(0,0,0,.2)' }}>
+            <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 200, background: 'rgba(15,31,51,.6)', backdropFilter: 'blur(4px)', overflowY: 'auto' }} onClick={e => { if (e.target === e.currentTarget) { setShowWebsiteModal(false); setEditingWebsite(null) } }}>
+              <div style={{ background: 'white', borderRadius: '16px', padding: '36px', width: 'calc(100% - 40px)', maxWidth: '480px', boxShadow: '0 24px 60px rgba(0,0,0,.2)', margin: '20px auto' }}>
                 <h2 style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '24px', color: '#1C3557', marginBottom: '24px' }}>
                   {editingWebsite ? 'Edit Website' : 'Add Website'}
                 </h2>
@@ -801,8 +801,8 @@ export default function DashboardClient({ session }: { session: Session }) {
           )}
 
           {showTeamModal && (
-            <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(15,31,51,.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '20px', overflowY: 'auto' }} onClick={e => { if (e.target === e.currentTarget) { setShowTeamModal(false); setEditingMember(null) } }}>
-              <div style={{ background: 'white', borderRadius: '16px', padding: '36px', width: '100%', maxWidth: '480px', boxShadow: '0 24px 60px rgba(0,0,0,.2)', margin: 'auto' }}>
+            <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 200, background: 'rgba(15,31,51,.6)', backdropFilter: 'blur(4px)', overflowY: 'auto' }} onClick={e => { if (e.target === e.currentTarget) { setShowTeamModal(false); setEditingMember(null) } }}>
+              <div style={{ background: 'white', borderRadius: '16px', padding: '36px', width: 'calc(100% - 40px)', maxWidth: '480px', boxShadow: '0 24px 60px rgba(0,0,0,.2)', margin: '20px auto' }}>
                 <h2 style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '24px', color: '#1C3557', marginBottom: '24px' }}>{editingMember ? `Edit ${editingMember.name}` : 'Add Team Member'}</h2>
 
                 {teamMsg?.type === 'error' && (
@@ -927,8 +927,8 @@ export default function DashboardClient({ session }: { session: Session }) {
           )}
 
           {showVaultModal && (
-            <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(15,31,51,.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '20px', overflowY: 'auto' }} onClick={e => { if (e.target === e.currentTarget) { setShowVaultModal(false); setEditingVault(null) } }}>
-              <div style={{ background: 'white', borderRadius: '16px', padding: '36px', width: '100%', maxWidth: '480px', boxShadow: '0 24px 60px rgba(0,0,0,.2)', margin: 'auto' }}>
+            <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 200, background: 'rgba(15,31,51,.6)', backdropFilter: 'blur(4px)', overflowY: 'auto' }} onClick={e => { if (e.target === e.currentTarget) { setShowVaultModal(false); setEditingVault(null) } }}>
+              <div style={{ background: 'white', borderRadius: '16px', padding: '36px', width: 'calc(100% - 40px)', maxWidth: '480px', boxShadow: '0 24px 60px rgba(0,0,0,.2)', margin: '20px auto' }}>
                 <h2 style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '24px', color: '#1C3557', marginBottom: '24px' }}>{editingVault ? `Edit ${editingVault.label}` : 'Add Login'}</h2>
 
                 {vaultMsg?.type === 'error' && (
@@ -996,8 +996,8 @@ export default function DashboardClient({ session }: { session: Session }) {
 
       {/* Quick Link Modal (global since used from overview) */}
       {showQLModal && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(15,31,51,.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }} onClick={e => { if (e.target === e.currentTarget) { setShowQLModal(false); setEditingQL(null) } }}>
-          <div style={{ background: 'white', borderRadius: '16px', padding: '36px', width: '100%', maxWidth: '420px', boxShadow: '0 24px 60px rgba(0,0,0,.2)' }}>
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 200, background: 'rgba(15,31,51,.6)', backdropFilter: 'blur(4px)', overflowY: 'auto' }} onClick={e => { if (e.target === e.currentTarget) { setShowQLModal(false); setEditingQL(null) } }}>
+          <div style={{ background: 'white', borderRadius: '16px', padding: '36px', width: 'calc(100% - 40px)', maxWidth: '420px', boxShadow: '0 24px 60px rgba(0,0,0,.2)', margin: '20px auto' }}>
             <h2 style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '24px', color: '#1C3557', marginBottom: '24px' }}>
               {editingQL ? 'Edit Quick Link' : 'Add Quick Link'}
             </h2>
