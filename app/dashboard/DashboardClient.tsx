@@ -915,12 +915,12 @@ export default function DashboardClient({ session }: { session: Session }) {
             </div>
             <div style={{ marginBottom: '16px' }}>
               <label style={labelStyle}>Email</label>
-              <input type="email" value={teamForm.email} onChange={e => setTeamForm(f => ({...f, email: e.target.value}))} placeholder="jane@dakjencreative.com" style={inputStyle} />
+              <input type="email" autoComplete="off" value={teamForm.email} onChange={e => setTeamForm(f => ({...f, email: e.target.value}))} placeholder="jane@dakjencreative.com" style={inputStyle} />
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
               <div>
                 <label style={labelStyle}>{editingMember ? 'New Password' : 'Password'}</label>
-                <input type="password" value={teamForm.password} onChange={e => setTeamForm(f => ({...f, password: e.target.value}))} placeholder={editingMember ? 'Leave blank to keep' : 'Temporary password'} style={inputStyle} />
+                <input type="password" autoComplete="new-password" value={teamForm.password} onChange={e => setTeamForm(f => ({...f, password: e.target.value}))} placeholder={editingMember ? 'Leave blank to keep' : 'Temporary password'} style={inputStyle} />
               </div>
               <div>
                 <label style={labelStyle}>Role</label>
