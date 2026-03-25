@@ -725,7 +725,7 @@ export default function DashboardClient({ session }: { session: Session }) {
                   <div style={{ fontSize: '10px', color: '#d1cec9', marginTop: '4px' }}>{m.email}</div>
                   {user.role === 'owner' && (m.hourly_rate || m.weekly_hours || m.pay_schedule) && (
                     <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #f5f4f2', fontSize: '11px', color: '#6b6560' }}>
-                      {m.hourly_rate != null && <div>${m.hourly_rate}/hr</div>}
+                      {m.hourly_rate != null && <div>${Number(m.hourly_rate).toFixed(2)}/hr</div>}
                       {m.weekly_hours != null && <div>{m.weekly_hours} hrs/wk</div>}
                       {m.pay_schedule && <div style={{ color: '#9e9a93', marginTop: '2px' }}>{m.pay_schedule}</div>}
                     </div>
@@ -933,7 +933,7 @@ export default function DashboardClient({ session }: { session: Session }) {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
               <div>
                 <label style={labelStyle}>Hourly Rate ($)</label>
-                <input type="number" value={teamForm.hourly_rate} onChange={e => setTeamForm(f => ({...f, hourly_rate: e.target.value}))} placeholder="e.g. 62" style={inputStyle} />
+                <input type="number" step="0.01" value={teamForm.hourly_rate} onChange={e => setTeamForm(f => ({...f, hourly_rate: e.target.value}))} placeholder="e.g. 62" style={inputStyle} />
               </div>
               <div>
                 <label style={labelStyle}>Weekly Hours</label>

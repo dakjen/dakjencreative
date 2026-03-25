@@ -1,6 +1,6 @@
 import { neon } from '@neondatabase/serverless'
 import { drizzle } from 'drizzle-orm/neon-http'
-import { pgTable, text, timestamp, boolean, serial, varchar, integer } from 'drizzle-orm/pg-core'
+import { pgTable, text, timestamp, boolean, serial, varchar, integer, numeric } from 'drizzle-orm/pg-core'
 
 const sql = neon(process.env.DATABASE_URL!)
 export const db = drizzle(sql)
@@ -12,7 +12,7 @@ export const users = pgTable('users', {
   password: text('password').notNull(),
   role: varchar('role', { length: 20 }).notNull().default('team'),
   initials: varchar('initials', { length: 4 }).notNull(),
-  hourlyRate: integer('hourly_rate'),
+  hourlyRate: numeric('hourly_rate', { precision: 10, scale: 2 }),
   weeklyHours: integer('weekly_hours'),
   paySchedule: varchar('pay_schedule', { length: 30 }),
   createdAt: timestamp('created_at').defaultNow(),
