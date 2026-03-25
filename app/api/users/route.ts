@@ -47,6 +47,20 @@ export async function POST(req: Request) {
   }
 }
 
+export async function DELETE(req: Request) {
+  const session = await getServerSession(authOptions)
+  if (!session || (session.user as any).role !== 'owner') {
+    return NextResponse.json({ error: 'Owner only' }, { status: 403 })
+  }
+
+  const { id } = await req.json()
+  if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 })
+
+  const db = sql()
+  await db`DELETE FROM users WHERE id = ${id} AND role != 'owner'`
+  return NextResponse.json({ ok: true })
+}
+
 export async function PATCH(req: Request) {
   const session = await getServerSession(authOptions)
   if (!session || (session.user as any).role !== 'owner') {

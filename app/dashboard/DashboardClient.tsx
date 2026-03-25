@@ -203,6 +203,11 @@ export default function DashboardClient({ session }: { session: Session }) {
     }
   }
 
+  async function deleteTeamMember(id: number) {
+    await fetch('/api/users', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) })
+    setTeamMembers(ms => ms.filter(m => m.id !== id))
+  }
+
   function openEditModal(m: TeamMember) {
     setEditingMember(m)
     setTeamForm({
@@ -572,43 +577,6 @@ export default function DashboardClient({ session }: { session: Session }) {
             ))}
           </div>
 
-          {showTaskModal && (
-            <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 200, background: 'rgba(15,31,51,.6)', backdropFilter: 'blur(4px)', overflowY: 'auto' }} onClick={e => { if (e.target === e.currentTarget) setShowTaskModal(false) }}>
-              <div style={{ background: 'white', borderRadius: '16px', padding: '36px', width: 'calc(100% - 40px)', maxWidth: '480px', boxShadow: '0 24px 60px rgba(0,0,0,.2)', margin: '20px auto' }}>
-                <h2 style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '24px', color: '#1C3557', marginBottom: '24px' }}>Add Task</h2>
-                <div style={{ marginBottom: '16px' }}>
-                  <label style={labelStyle}>Task</label>
-                  <input value={newTask.text} onChange={e => setNewTask(n => ({...n, text: e.target.value}))} onKeyDown={e => e.key === 'Enter' && addTask()} placeholder="e.g. Send proposal to UrbanCore" style={inputStyle} />
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
-                  <div>
-                    <label style={labelStyle}>Business Line</label>
-                    <select value={newTask.tag} onChange={e => setNewTask(n => ({...n, tag: e.target.value}))} style={inputStyle}>
-                      <option value="djc">DJC Marketing</option>
-                      <option value="notable">Notable</option>
-                      <option value="elitewise">Elitewise</option>
-                      <option value="fractional">Fractional</option>
-                      <option value="community">Business Community</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label style={labelStyle}>Due Date</label>
-                    <input type="date" value={newTask.due} onChange={e => setNewTask(n => ({...n, due: e.target.value}))} style={inputStyle} />
-                  </div>
-                </div>
-                <div style={{ marginBottom: '24px' }}>
-                  <label style={labelStyle}>Assign To</label>
-                  <select value={newTask.assignee} onChange={e => setNewTask(n => ({...n, assignee: e.target.value}))} style={inputStyle}>
-                    {['Dakotah','Olivia','Jarea','Brittni','Team'].map(a => <option key={a}>{a}</option>)}
-                  </select>
-                </div>
-                <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-                  <button onClick={() => setShowTaskModal(false)} style={{ padding: '10px 20px', border: '1px solid #e8e6e1', borderRadius: '8px', background: 'none', color: '#6b6560', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', fontSize: '13px' }}>Cancel</button>
-                  <button onClick={addTask} style={{ padding: '10px 24px', border: 'none', borderRadius: '8px', background: '#b07a8a', color: 'white', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', fontSize: '13px', fontWeight: 500 }}>Add Task</button>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       )
 
@@ -716,40 +684,6 @@ export default function DashboardClient({ session }: { session: Session }) {
             </div>
           )}
 
-          {/* Website Modal */}
-          {showWebsiteModal && (
-            <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 200, background: 'rgba(15,31,51,.6)', backdropFilter: 'blur(4px)', overflowY: 'auto' }} onClick={e => { if (e.target === e.currentTarget) { setShowWebsiteModal(false); setEditingWebsite(null) } }}>
-              <div style={{ background: 'white', borderRadius: '16px', padding: '36px', width: 'calc(100% - 40px)', maxWidth: '480px', boxShadow: '0 24px 60px rgba(0,0,0,.2)', margin: '20px auto' }}>
-                <h2 style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '24px', color: '#1C3557', marginBottom: '24px' }}>
-                  {editingWebsite ? 'Edit Website' : 'Add Website'}
-                </h2>
-                <div style={{ display: 'grid', gridTemplateColumns: '60px 1fr', gap: '12px', marginBottom: '16px' }}>
-                  <div>
-                    <label style={labelStyle}>Icon</label>
-                    <input value={websiteForm.icon} onChange={e => setWebsiteForm(f => ({...f, icon: e.target.value}))} style={inputStyle} />
-                  </div>
-                  <div>
-                    <label style={labelStyle}>Name</label>
-                    <input value={websiteForm.name} onChange={e => setWebsiteForm(f => ({...f, name: e.target.value}))} placeholder="My Website" style={inputStyle} />
-                  </div>
-                </div>
-                <div style={{ marginBottom: '16px' }}>
-                  <label style={labelStyle}>URL</label>
-                  <input value={websiteForm.url} onChange={e => setWebsiteForm(f => ({...f, url: e.target.value}))} placeholder="https://example.com" style={inputStyle} />
-                </div>
-                <div style={{ marginBottom: '24px' }}>
-                  <label style={labelStyle}>Description</label>
-                  <input value={websiteForm.description} onChange={e => setWebsiteForm(f => ({...f, description: e.target.value}))} placeholder="Short description" style={inputStyle} />
-                </div>
-                <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-                  <button onClick={() => { setShowWebsiteModal(false); setEditingWebsite(null) }} style={{ padding: '10px 20px', border: '1px solid #e8e6e1', borderRadius: '8px', background: 'none', color: '#6b6560', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', fontSize: '13px' }}>Cancel</button>
-                  <button onClick={saveWebsite} style={{ padding: '10px 24px', border: 'none', borderRadius: '8px', background: '#b07a8a', color: 'white', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', fontSize: '13px', fontWeight: 500 }}>
-                    {editingWebsite ? 'Save Changes' : 'Add Website'}
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       )
 
@@ -780,9 +714,10 @@ export default function DashboardClient({ session }: { session: Session }) {
               {teamMembers.map((m, i) => (
                 <div key={m.id} style={{ ...card, textAlign: 'center', position: 'relative' }}>
                   {user.role === 'owner' && (
-                    <button onClick={() => openEditModal(m)} style={{ position: 'absolute', top: '12px', right: '12px', background: 'none', border: 'none', cursor: 'pointer', color: '#9e9a93', fontSize: '12px', padding: '2px 6px' }} title="Edit">
-                      Edit
-                    </button>
+                    <div style={{ position: 'absolute', top: '10px', right: '10px', display: 'flex', gap: '4px' }}>
+                      <button onClick={() => openEditModal(m)} style={{ background: 'none', border: '1px solid #e8e6e1', borderRadius: '5px', cursor: 'pointer', color: '#6b6560', fontSize: '11px', padding: '2px 7px', fontFamily: 'DM Sans, sans-serif' }}>Edit</button>
+                      {m.role !== 'owner' && <button onClick={() => { if (confirm(`Remove ${m.name}?`)) deleteTeamMember(m.id) }} style={{ background: 'none', border: '1px solid rgba(220,38,38,.3)', borderRadius: '5px', cursor: 'pointer', color: '#dc2626', fontSize: '11px', padding: '2px 7px', fontFamily: 'DM Sans, sans-serif' }}>Remove</button>}
+                    </div>
                   )}
                   <div style={{ width: '52px', height: '52px', borderRadius: '50%', background: memberColors[i % memberColors.length], display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', fontWeight: 600, color: 'white', margin: '0 auto 12px' }}>{m.initials}</div>
                   <div style={{ fontSize: '13px', fontWeight: 500, marginBottom: '3px' }}>{m.name}</div>
@@ -800,68 +735,6 @@ export default function DashboardClient({ session }: { session: Session }) {
             </div>
           )}
 
-          {showTeamModal && (
-            <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 200, background: 'rgba(15,31,51,.6)', backdropFilter: 'blur(4px)', overflowY: 'auto' }} onClick={e => { if (e.target === e.currentTarget) { setShowTeamModal(false); setEditingMember(null) } }}>
-              <div style={{ background: 'white', borderRadius: '16px', padding: '36px', width: 'calc(100% - 40px)', maxWidth: '480px', boxShadow: '0 24px 60px rgba(0,0,0,.2)', margin: '20px auto' }}>
-                <h2 style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '24px', color: '#1C3557', marginBottom: '24px' }}>{editingMember ? `Edit ${editingMember.name}` : 'Add Team Member'}</h2>
-
-                {teamMsg?.type === 'error' && (
-                  <div style={{ padding: '8px 14px', borderRadius: '6px', marginBottom: '16px', fontSize: '12px', background: 'rgba(220,38,38,.08)', color: '#dc2626', border: '1px solid rgba(220,38,38,.2)' }}>{teamMsg.text}</div>
-                )}
-
-                <div style={{ marginBottom: '16px' }}>
-                  <label style={labelStyle}>Full Name</label>
-                  <input value={teamForm.name} onChange={e => setTeamForm(f => ({...f, name: e.target.value}))} placeholder="Jane Smith" style={inputStyle} />
-                </div>
-                <div style={{ marginBottom: '16px' }}>
-                  <label style={labelStyle}>Email</label>
-                  <input type="email" value={teamForm.email} onChange={e => setTeamForm(f => ({...f, email: e.target.value}))} placeholder="jane@dakjencreative.com" style={inputStyle} />
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
-                  <div>
-                    <label style={labelStyle}>{editingMember ? 'New Password' : 'Password'}</label>
-                    <input type="password" value={teamForm.password} onChange={e => setTeamForm(f => ({...f, password: e.target.value}))} placeholder={editingMember ? 'Leave blank to keep' : 'Temporary password'} style={inputStyle} />
-                  </div>
-                  <div>
-                    <label style={labelStyle}>Role</label>
-                    <select value={teamForm.role} onChange={e => setTeamForm(f => ({...f, role: e.target.value}))} style={inputStyle}>
-                      <option value="team">Team</option>
-                      <option value="owner">Owner</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
-                  <div>
-                    <label style={labelStyle}>Hourly Rate ($)</label>
-                    <input type="number" value={teamForm.hourly_rate} onChange={e => setTeamForm(f => ({...f, hourly_rate: e.target.value}))} placeholder="e.g. 62" style={inputStyle} />
-                  </div>
-                  <div>
-                    <label style={labelStyle}>Weekly Hours</label>
-                    <input type="number" value={teamForm.weekly_hours} onChange={e => setTeamForm(f => ({...f, weekly_hours: e.target.value}))} placeholder="30" style={inputStyle} />
-                  </div>
-                </div>
-                <div style={{ marginBottom: '24px' }}>
-                  <label style={labelStyle}>Pay Schedule</label>
-                  <select value={teamForm.pay_schedule} onChange={e => setTeamForm(f => ({...f, pay_schedule: e.target.value}))} style={inputStyle}>
-                    <option value="">None</option>
-                    <option value="1st & 15th">1st & 15th</option>
-                    <option value="Bi-weekly">Bi-weekly</option>
-                    <option value="Monthly">Monthly</option>
-                    <option value="Weekly">Weekly</option>
-                  </select>
-                </div>
-
-                <div style={{ fontSize: '11px', color: '#9e9a93', marginBottom: '20px' }}>
-                  Initials will be auto-generated from the name.
-                </div>
-                <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-                  <button onClick={() => { setShowTeamModal(false); setEditingMember(null) }} style={{ padding: '10px 20px', border: '1px solid #e8e6e1', borderRadius: '8px', background: 'none', color: '#6b6560', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', fontSize: '13px' }}>Cancel</button>
-                  <button onClick={editingMember ? updateTeamMember : addTeamMember} style={{ padding: '10px 24px', border: 'none', borderRadius: '8px', background: '#b07a8a', color: 'white', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', fontSize: '13px', fontWeight: 500 }}>{editingMember ? 'Save Changes' : 'Add Member'}</button>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       )}
 
@@ -926,42 +799,6 @@ export default function DashboardClient({ session }: { session: Session }) {
             </div>
           )}
 
-          {showVaultModal && (
-            <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 200, background: 'rgba(15,31,51,.6)', backdropFilter: 'blur(4px)', overflowY: 'auto' }} onClick={e => { if (e.target === e.currentTarget) { setShowVaultModal(false); setEditingVault(null) } }}>
-              <div style={{ background: 'white', borderRadius: '16px', padding: '36px', width: 'calc(100% - 40px)', maxWidth: '480px', boxShadow: '0 24px 60px rgba(0,0,0,.2)', margin: '20px auto' }}>
-                <h2 style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '24px', color: '#1C3557', marginBottom: '24px' }}>{editingVault ? `Edit ${editingVault.label}` : 'Add Login'}</h2>
-
-                {vaultMsg?.type === 'error' && (
-                  <div style={{ padding: '8px 14px', borderRadius: '6px', marginBottom: '16px', fontSize: '12px', background: 'rgba(220,38,38,.08)', color: '#dc2626', border: '1px solid rgba(220,38,38,.2)' }}>{vaultMsg.text}</div>
-                )}
-
-                <div style={{ marginBottom: '16px' }}>
-                  <label style={labelStyle}>Label</label>
-                  <input value={vaultForm.label} onChange={e => setVaultForm(f => ({...f, label: e.target.value}))} placeholder="e.g. Gmail – DJC Main" style={inputStyle} />
-                </div>
-                <div style={{ marginBottom: '16px' }}>
-                  <label style={labelStyle}>Username / Email</label>
-                  <input value={vaultForm.username} onChange={e => setVaultForm(f => ({...f, username: e.target.value}))} placeholder="hello@dakjencreative.com" style={inputStyle} />
-                </div>
-                <div style={{ marginBottom: '16px' }}>
-                  <label style={labelStyle}>{editingVault ? 'Password (leave blank to keep)' : 'Password'}</label>
-                  <input type="text" value={vaultForm.password} onChange={e => setVaultForm(f => ({...f, password: e.target.value}))} placeholder="Enter password" style={{ ...inputStyle, fontFamily: 'monospace' }} />
-                </div>
-                <div style={{ marginBottom: '16px' }}>
-                  <label style={labelStyle}>URL (optional)</label>
-                  <input value={vaultForm.url} onChange={e => setVaultForm(f => ({...f, url: e.target.value}))} placeholder="https://mail.google.com" style={inputStyle} />
-                </div>
-                <div style={{ marginBottom: '24px' }}>
-                  <label style={labelStyle}>Notes (optional)</label>
-                  <textarea value={vaultForm.notes} onChange={e => setVaultForm(f => ({...f, notes: e.target.value}))} placeholder="Recovery email, 2FA info, etc." rows={3} style={{ ...inputStyle, resize: 'vertical' }} />
-                </div>
-                <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-                  <button onClick={() => { setShowVaultModal(false); setEditingVault(null) }} style={{ padding: '10px 20px', border: '1px solid #e8e6e1', borderRadius: '8px', background: 'none', color: '#6b6560', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', fontSize: '13px' }}>Cancel</button>
-                  <button onClick={saveVaultEntry} style={{ padding: '10px 24px', border: 'none', borderRadius: '8px', background: '#b07a8a', color: 'white', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', fontSize: '13px', fontWeight: 500 }}>{editingVault ? 'Save Changes' : 'Save Login'}</button>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       )
 
@@ -993,6 +830,170 @@ export default function DashboardClient({ session }: { session: Session }) {
           {renderPage()}
         </div>
       </div>
+
+      {/* Task Modal */}
+      {showTaskModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 200, background: 'rgba(15,31,51,.6)', backdropFilter: 'blur(4px)', overflowY: 'auto' }} onClick={e => { if (e.target === e.currentTarget) setShowTaskModal(false) }}>
+          <div style={{ background: 'white', borderRadius: '16px', padding: '36px', width: 'calc(100% - 40px)', maxWidth: '480px', boxShadow: '0 24px 60px rgba(0,0,0,.2)', margin: '20px auto' }}>
+            <h2 style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '24px', color: '#1C3557', marginBottom: '24px' }}>Add Task</h2>
+            <div style={{ marginBottom: '16px' }}>
+              <label style={labelStyle}>Task</label>
+              <input value={newTask.text} onChange={e => setNewTask(n => ({...n, text: e.target.value}))} onKeyDown={e => e.key === 'Enter' && addTask()} placeholder="e.g. Send proposal to UrbanCore" style={inputStyle} />
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+              <div>
+                <label style={labelStyle}>Business Line</label>
+                <select value={newTask.tag} onChange={e => setNewTask(n => ({...n, tag: e.target.value}))} style={inputStyle}>
+                  <option value="djc">DJC Marketing</option>
+                  <option value="notable">Notable</option>
+                  <option value="elitewise">Elitewise</option>
+                  <option value="fractional">Fractional</option>
+                  <option value="community">Business Community</option>
+                </select>
+              </div>
+              <div>
+                <label style={labelStyle}>Due Date</label>
+                <input type="date" value={newTask.due} onChange={e => setNewTask(n => ({...n, due: e.target.value}))} style={inputStyle} />
+              </div>
+            </div>
+            <div style={{ marginBottom: '24px' }}>
+              <label style={labelStyle}>Assign To</label>
+              <select value={newTask.assignee} onChange={e => setNewTask(n => ({...n, assignee: e.target.value}))} style={inputStyle}>
+                {['Dakotah','Olivia','Jarea','Brittni','Team'].map(a => <option key={a}>{a}</option>)}
+              </select>
+            </div>
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+              <button onClick={() => setShowTaskModal(false)} style={{ padding: '10px 20px', border: '1px solid #e8e6e1', borderRadius: '8px', background: 'none', color: '#6b6560', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', fontSize: '13px' }}>Cancel</button>
+              <button onClick={addTask} style={{ padding: '10px 24px', border: 'none', borderRadius: '8px', background: '#b07a8a', color: 'white', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', fontSize: '13px', fontWeight: 500 }}>Add Task</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Website Modal */}
+      {showWebsiteModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 200, background: 'rgba(15,31,51,.6)', backdropFilter: 'blur(4px)', overflowY: 'auto' }} onClick={e => { if (e.target === e.currentTarget) { setShowWebsiteModal(false); setEditingWebsite(null) } }}>
+          <div style={{ background: 'white', borderRadius: '16px', padding: '36px', width: 'calc(100% - 40px)', maxWidth: '480px', boxShadow: '0 24px 60px rgba(0,0,0,.2)', margin: '20px auto' }}>
+            <h2 style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '24px', color: '#1C3557', marginBottom: '24px' }}>{editingWebsite ? 'Edit Website' : 'Add Website'}</h2>
+            <div style={{ display: 'grid', gridTemplateColumns: '60px 1fr', gap: '12px', marginBottom: '16px' }}>
+              <div>
+                <label style={labelStyle}>Icon</label>
+                <input value={websiteForm.icon} onChange={e => setWebsiteForm(f => ({...f, icon: e.target.value}))} style={inputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>Name</label>
+                <input value={websiteForm.name} onChange={e => setWebsiteForm(f => ({...f, name: e.target.value}))} placeholder="My Website" style={inputStyle} />
+              </div>
+            </div>
+            <div style={{ marginBottom: '16px' }}>
+              <label style={labelStyle}>URL</label>
+              <input value={websiteForm.url} onChange={e => setWebsiteForm(f => ({...f, url: e.target.value}))} placeholder="https://example.com" style={inputStyle} />
+            </div>
+            <div style={{ marginBottom: '24px' }}>
+              <label style={labelStyle}>Description</label>
+              <input value={websiteForm.description} onChange={e => setWebsiteForm(f => ({...f, description: e.target.value}))} placeholder="Short description" style={inputStyle} />
+            </div>
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+              <button onClick={() => { setShowWebsiteModal(false); setEditingWebsite(null) }} style={{ padding: '10px 20px', border: '1px solid #e8e6e1', borderRadius: '8px', background: 'none', color: '#6b6560', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', fontSize: '13px' }}>Cancel</button>
+              <button onClick={saveWebsite} style={{ padding: '10px 24px', border: 'none', borderRadius: '8px', background: '#b07a8a', color: 'white', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', fontSize: '13px', fontWeight: 500 }}>{editingWebsite ? 'Save Changes' : 'Add Website'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Team Modal */}
+      {showTeamModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 200, background: 'rgba(15,31,51,.6)', backdropFilter: 'blur(4px)', overflowY: 'auto' }} onClick={e => { if (e.target === e.currentTarget) { setShowTeamModal(false); setEditingMember(null) } }}>
+          <div style={{ background: 'white', borderRadius: '16px', padding: '36px', width: 'calc(100% - 40px)', maxWidth: '480px', boxShadow: '0 24px 60px rgba(0,0,0,.2)', margin: '20px auto' }}>
+            <h2 style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '24px', color: '#1C3557', marginBottom: '24px' }}>{editingMember ? `Edit ${editingMember.name}` : 'Add Team Member'}</h2>
+            {teamMsg?.type === 'error' && (
+              <div style={{ padding: '8px 14px', borderRadius: '6px', marginBottom: '16px', fontSize: '12px', background: 'rgba(220,38,38,.08)', color: '#dc2626', border: '1px solid rgba(220,38,38,.2)' }}>{teamMsg.text}</div>
+            )}
+            <div style={{ marginBottom: '16px' }}>
+              <label style={labelStyle}>Full Name</label>
+              <input value={teamForm.name} onChange={e => setTeamForm(f => ({...f, name: e.target.value}))} placeholder="Jane Smith" style={inputStyle} />
+            </div>
+            <div style={{ marginBottom: '16px' }}>
+              <label style={labelStyle}>Email</label>
+              <input type="email" value={teamForm.email} onChange={e => setTeamForm(f => ({...f, email: e.target.value}))} placeholder="jane@dakjencreative.com" style={inputStyle} />
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+              <div>
+                <label style={labelStyle}>{editingMember ? 'New Password' : 'Password'}</label>
+                <input type="password" value={teamForm.password} onChange={e => setTeamForm(f => ({...f, password: e.target.value}))} placeholder={editingMember ? 'Leave blank to keep' : 'Temporary password'} style={inputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>Role</label>
+                <select value={teamForm.role} onChange={e => setTeamForm(f => ({...f, role: e.target.value}))} style={inputStyle}>
+                  <option value="team">Team</option>
+                  <option value="owner">Owner</option>
+                </select>
+              </div>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+              <div>
+                <label style={labelStyle}>Hourly Rate ($)</label>
+                <input type="number" value={teamForm.hourly_rate} onChange={e => setTeamForm(f => ({...f, hourly_rate: e.target.value}))} placeholder="e.g. 62" style={inputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>Weekly Hours</label>
+                <input type="number" value={teamForm.weekly_hours} onChange={e => setTeamForm(f => ({...f, weekly_hours: e.target.value}))} placeholder="30" style={inputStyle} />
+              </div>
+            </div>
+            <div style={{ marginBottom: '24px' }}>
+              <label style={labelStyle}>Pay Schedule</label>
+              <select value={teamForm.pay_schedule} onChange={e => setTeamForm(f => ({...f, pay_schedule: e.target.value}))} style={inputStyle}>
+                <option value="">None</option>
+                <option value="1st & 15th">1st & 15th</option>
+                <option value="Bi-weekly">Bi-weekly</option>
+                <option value="Monthly">Monthly</option>
+                <option value="Weekly">Weekly</option>
+              </select>
+            </div>
+            <div style={{ fontSize: '11px', color: '#9e9a93', marginBottom: '20px' }}>Initials will be auto-generated from the name.</div>
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+              <button onClick={() => { setShowTeamModal(false); setEditingMember(null) }} style={{ padding: '10px 20px', border: '1px solid #e8e6e1', borderRadius: '8px', background: 'none', color: '#6b6560', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', fontSize: '13px' }}>Cancel</button>
+              <button onClick={editingMember ? updateTeamMember : addTeamMember} style={{ padding: '10px 24px', border: 'none', borderRadius: '8px', background: '#b07a8a', color: 'white', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', fontSize: '13px', fontWeight: 500 }}>{editingMember ? 'Save Changes' : 'Add Member'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Vault Modal */}
+      {showVaultModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 200, background: 'rgba(15,31,51,.6)', backdropFilter: 'blur(4px)', overflowY: 'auto' }} onClick={e => { if (e.target === e.currentTarget) { setShowVaultModal(false); setEditingVault(null) } }}>
+          <div style={{ background: 'white', borderRadius: '16px', padding: '36px', width: 'calc(100% - 40px)', maxWidth: '480px', boxShadow: '0 24px 60px rgba(0,0,0,.2)', margin: '20px auto' }}>
+            <h2 style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '24px', color: '#1C3557', marginBottom: '24px' }}>{editingVault ? `Edit ${editingVault.label}` : 'Add Login'}</h2>
+            {vaultMsg?.type === 'error' && (
+              <div style={{ padding: '8px 14px', borderRadius: '6px', marginBottom: '16px', fontSize: '12px', background: 'rgba(220,38,38,.08)', color: '#dc2626', border: '1px solid rgba(220,38,38,.2)' }}>{vaultMsg.text}</div>
+            )}
+            <div style={{ marginBottom: '16px' }}>
+              <label style={labelStyle}>Label</label>
+              <input value={vaultForm.label} onChange={e => setVaultForm(f => ({...f, label: e.target.value}))} placeholder="e.g. Gmail – DJC Main" style={inputStyle} />
+            </div>
+            <div style={{ marginBottom: '16px' }}>
+              <label style={labelStyle}>Username / Email</label>
+              <input value={vaultForm.username} onChange={e => setVaultForm(f => ({...f, username: e.target.value}))} placeholder="hello@dakjencreative.com" style={inputStyle} />
+            </div>
+            <div style={{ marginBottom: '16px' }}>
+              <label style={labelStyle}>{editingVault ? 'Password (leave blank to keep)' : 'Password'}</label>
+              <input type="text" value={vaultForm.password} onChange={e => setVaultForm(f => ({...f, password: e.target.value}))} placeholder="Enter password" style={{ ...inputStyle, fontFamily: 'monospace' }} />
+            </div>
+            <div style={{ marginBottom: '16px' }}>
+              <label style={labelStyle}>URL (optional)</label>
+              <input value={vaultForm.url} onChange={e => setVaultForm(f => ({...f, url: e.target.value}))} placeholder="https://mail.google.com" style={inputStyle} />
+            </div>
+            <div style={{ marginBottom: '24px' }}>
+              <label style={labelStyle}>Notes (optional)</label>
+              <textarea value={vaultForm.notes} onChange={e => setVaultForm(f => ({...f, notes: e.target.value}))} placeholder="Recovery email, 2FA info, etc." rows={3} style={{ ...inputStyle, resize: 'vertical' }} />
+            </div>
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+              <button onClick={() => { setShowVaultModal(false); setEditingVault(null) }} style={{ padding: '10px 20px', border: '1px solid #e8e6e1', borderRadius: '8px', background: 'none', color: '#6b6560', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', fontSize: '13px' }}>Cancel</button>
+              <button onClick={saveVaultEntry} style={{ padding: '10px 24px', border: 'none', borderRadius: '8px', background: '#b07a8a', color: 'white', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', fontSize: '13px', fontWeight: 500 }}>{editingVault ? 'Save Changes' : 'Save Login'}</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Quick Link Modal (global since used from overview) */}
       {showQLModal && (
