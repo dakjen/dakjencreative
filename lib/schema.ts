@@ -63,6 +63,17 @@ export const quickLinks = pgTable('quick_links', {
   createdAt: timestamp('created_at').defaultNow(),
 })
 
+export const vault = pgTable('vault', {
+  id: serial('id').primaryKey(),
+  label: text('label').notNull(),
+  username: text('username'),
+  passwordEnc: text('password_enc').notNull(),
+  url: text('url'),
+  notes: text('notes'),
+  createdBy: integer('created_by').references(() => users.id),
+  createdAt: timestamp('created_at').defaultNow(),
+})
+
 export type User        = typeof users.$inferSelect
 export type Task        = typeof tasks.$inferSelect
 export type NewTask     = typeof tasks.$inferInsert
@@ -70,3 +81,4 @@ export type Contract    = typeof contracts.$inferSelect
 export type NewContract = typeof contracts.$inferInsert
 export type Website     = typeof websites.$inferSelect
 export type QuickLink   = typeof quickLinks.$inferSelect
+export type VaultEntry  = typeof vault.$inferSelect

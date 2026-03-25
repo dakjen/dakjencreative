@@ -20,6 +20,7 @@ const NAV = [
   { id: 'notable',       label: 'Notable',         section: 'lines',     ownerOnly: false },
   { id: 'elitewise',     label: 'Elitewise',       section: 'lines',     ownerOnly: false },
   { id: 'websites',      label: 'Websites',        section: 'workspace', ownerOnly: false },
+  { id: 'vault',         label: 'Password Vault',  section: 'workspace', ownerOnly: false },
   { id: 'integrations',  label: 'Integrations',    section: 'workspace', ownerOnly: true  },
   { id: 'financials',    label: 'Financials',      section: 'workspace', ownerOnly: true  },
   { id: 'team',          label: 'Team',            section: 'workspace', ownerOnly: true  },
@@ -28,7 +29,7 @@ const NAV = [
 const PAGE_TITLES: Record<string, string> = {
   overview: 'Dashboard', revenue: 'Revenue Tracker', tasks: 'Tasks',
   djc: 'DJC Marketing', notable: 'Notable', elitewise: 'Elitewise Escapes',
-  websites: 'Websites', integrations: 'Integrations',
+  websites: 'Websites', vault: 'Password Vault', integrations: 'Integrations',
   financials: 'Financials', team: 'Team',
 }
 
@@ -36,6 +37,7 @@ const PAGE_TITLES: Record<string, string> = {
 interface Task { id: number; text: string; tag: string; due: string | null; assignee: string | null; done: boolean }
 interface WebsiteItem { id: number; name: string; url: string; description: string | null; icon: string; created_at: string }
 interface QuickLinkItem { id: number; name: string; url: string; icon: string; created_at: string }
+interface VaultEntry { id: number; label: string; username: string | null; password: string; url: string | null; notes: string | null }
 
 // ── STYLES ──
 const card: React.CSSProperties = { background: 'white', border: '1px solid #e8e6e1', borderRadius: '12px', padding: '24px' }
@@ -78,6 +80,15 @@ export default function DashboardClient({ session }: { session: Session }) {
   const [editingQL, setEditingQL] = useState<QuickLinkItem | null>(null)
   const [qlForm, setQLForm] = useState({ name: '', url: '', icon: '🔗' })
 
+  // ── VAULT STATE ──
+  const [vault, setVault] = useState<VaultEntry[]>([])
+  const [vaultLoaded, setVaultLoaded] = useState(false)
+  const [showVaultModal, setShowVaultModal] = useState(false)
+  const [editingVault, setEditingVault] = useState<VaultEntry | null>(null)
+  const [vaultForm, setVaultForm] = useState({ label: '', username: '', password: '', url: '', notes: '' })
+  const [vaultMsg, setVaultMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [revealedIds, setRevealedIds] = useState<Set<number>>(new Set())
+
   const user     = session.user as any
   const isOwner  = user.role === 'owner'
   const greeting = (() => { const h = new Date().getHours(); return h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening' })()
@@ -116,6 +127,14 @@ export default function DashboardClient({ session }: { session: Session }) {
     setQuickLinksLoaded(true)
   }
 
+  async function loadVault() {
+    if (vaultLoaded) return
+    const res  = await fetch('/api/vault')
+    const data = await res.json()
+    setVault(Array.isArray(data) ? data : [])
+    setVaultLoaded(true)
+  }
+
   // Load quick links on mount (needed for overview page) + restore page data
   useEffect(() => {
     loadQuickLinks()
@@ -123,6 +142,7 @@ export default function DashboardClient({ session }: { session: Session }) {
     if (page === 'tasks') loadTasks()
     if (page === 'team') loadTeam()
     if (page === 'websites') loadWebsites()
+    if (page === 'vault') loadVault()
   }, [])
 
   // ── TEAM CRUD ──
@@ -262,6 +282,52 @@ export default function DashboardClient({ session }: { session: Session }) {
     setQuickLinks(qs => qs.filter(q => q.id !== id))
   }
 
+  // ── VAULT CRUD ──
+  async function saveVaultEntry() {
+    if (!vaultForm.label.trim() || !vaultForm.password.trim()) return
+    setVaultMsg(null)
+    const method = editingVault ? 'PATCH' : 'POST'
+    const body: any = { ...vaultForm }
+    if (editingVault) body.id = editingVault.id
+    if (!body.username) body.username = null
+    if (!body.url) body.url = null
+    if (!body.notes) body.notes = null
+    if (editingVault && !body.password) delete body.password
+    const res = await fetch('/api/vault', {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+    if (res.ok) {
+      const item = await res.json()
+      if (editingVault) {
+        setVault(vs => vs.map(v => v.id === item.id ? item : v))
+      } else {
+        setVault(vs => [...vs, item])
+      }
+      setShowVaultModal(false)
+      setEditingVault(null)
+      setVaultForm({ label: '', username: '', password: '', url: '', notes: '' })
+      setVaultMsg({ type: 'success', text: editingVault ? 'Entry updated.' : 'Entry saved.' })
+    } else {
+      const err = await res.json()
+      setVaultMsg({ type: 'error', text: err.error ?? 'Something went wrong.' })
+    }
+  }
+
+  async function deleteVaultEntry(id: number) {
+    await fetch('/api/vault', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) })
+    setVault(vs => vs.filter(v => v.id !== id))
+    setRevealedIds(s => { const n = new Set(s); n.delete(id); return n })
+  }
+
+  function openEditVault(v: VaultEntry) {
+    setEditingVault(v)
+    setVaultForm({ label: v.label, username: v.username ?? '', password: v.password, url: v.url ?? '', notes: v.notes ?? '' })
+    setVaultMsg(null)
+    setShowVaultModal(true)
+  }
+
   // ── NAVIGATION ──
   function goTo(id: string) {
     setPage(id)
@@ -269,6 +335,7 @@ export default function DashboardClient({ session }: { session: Session }) {
     if (id === 'tasks') loadTasks()
     if (id === 'team') loadTeam()
     if (id === 'websites') loadWebsites()
+    if (id === 'vault') loadVault()
   }
 
   async function toggleTask(id: number, done: boolean) {
@@ -734,8 +801,8 @@ export default function DashboardClient({ session }: { session: Session }) {
           )}
 
           {showTeamModal && (
-            <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(15,31,51,.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }} onClick={e => { if (e.target === e.currentTarget) { setShowTeamModal(false); setEditingMember(null) } }}>
-              <div style={{ background: 'white', borderRadius: '16px', padding: '36px', width: '100%', maxWidth: '480px', boxShadow: '0 24px 60px rgba(0,0,0,.2)' }}>
+            <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(15,31,51,.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '20px', overflowY: 'auto' }} onClick={e => { if (e.target === e.currentTarget) { setShowTeamModal(false); setEditingMember(null) } }}>
+              <div style={{ background: 'white', borderRadius: '16px', padding: '36px', width: '100%', maxWidth: '480px', boxShadow: '0 24px 60px rgba(0,0,0,.2)', margin: 'auto' }}>
                 <h2 style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '24px', color: '#1C3557', marginBottom: '24px' }}>{editingMember ? `Edit ${editingMember.name}` : 'Add Team Member'}</h2>
 
                 {teamMsg?.type === 'error' && (
@@ -797,6 +864,106 @@ export default function DashboardClient({ session }: { session: Session }) {
           )}
         </div>
       )}
+
+      case 'vault': return (
+        <div className="animate-fadeUp">
+          {isOwner && (
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '16px' }}>
+              <button onClick={() => { setVaultMsg(null); setEditingVault(null); setVaultForm({ label: '', username: '', password: '', url: '', notes: '' }); setShowVaultModal(true) }} style={{ padding: '8px 18px', borderRadius: '8px', border: 'none', background: '#b07a8a', color: 'white', fontSize: '13px', fontWeight: 500, cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}>
+                + Add Entry
+              </button>
+            </div>
+          )}
+
+          {vaultMsg && (
+            <div style={{ padding: '10px 16px', borderRadius: '8px', marginBottom: '16px', fontSize: '13px', background: vaultMsg.type === 'success' ? 'rgba(22,163,74,.08)' : 'rgba(220,38,38,.08)', color: vaultMsg.type === 'success' ? '#16a34a' : '#dc2626', border: `1px solid ${vaultMsg.type === 'success' ? 'rgba(22,163,74,.2)' : 'rgba(220,38,38,.2)'}` }}>
+              {vaultMsg.text}
+            </div>
+          )}
+
+          {!vaultLoaded ? (
+            <div style={{ textAlign: 'center', padding: '48px', color: '#9e9a93', fontSize: '13px' }}>Loading vault...</div>
+          ) : vault.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '48px', color: '#9e9a93', fontSize: '13px' }}>No entries yet. {isOwner ? 'Add your first login above.' : 'Ask an admin to add entries.'}</div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {vault.map(v => (
+                <div key={v.id} style={{ ...card, display: 'grid', gridTemplateColumns: '1fr auto', alignItems: 'center', gap: '16px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '200px 1fr 1fr', gap: '16px', alignItems: 'center' }}>
+                    <div>
+                      <div style={{ fontSize: '13px', fontWeight: 500, color: '#1C3557', marginBottom: '2px' }}>{v.label}</div>
+                      {v.url && <div style={{ fontSize: '11px', color: '#b07a8a' }}>{v.url}</div>}
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '10px', letterSpacing: '.08em', textTransform: 'uppercase', color: '#9e9a93', marginBottom: '3px' }}>Username</div>
+                      <div style={{ fontSize: '12px', color: '#3d3a36', fontFamily: 'monospace' }}>{v.username || '—'}</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '10px', letterSpacing: '.08em', textTransform: 'uppercase', color: '#9e9a93', marginBottom: '3px' }}>Password</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontSize: '12px', color: '#3d3a36', fontFamily: 'monospace', letterSpacing: revealedIds.has(v.id) ? 'normal' : '2px' }}>
+                          {revealedIds.has(v.id) ? v.password : '••••••••'}
+                        </span>
+                        <button onClick={() => setRevealedIds(s => { const n = new Set(s); revealedIds.has(v.id) ? n.delete(v.id) : n.add(v.id); return n })} style={{ background: 'none', border: '1px solid #e8e6e1', borderRadius: '5px', padding: '2px 8px', fontSize: '10px', color: '#6b6560', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}>
+                          {revealedIds.has(v.id) ? 'Hide' : 'View'}
+                        </button>
+                        {revealedIds.has(v.id) && (
+                          <button onClick={() => { navigator.clipboard.writeText(v.password); setVaultMsg({ type: 'success', text: 'Copied!' }); setTimeout(() => setVaultMsg(null), 1500) }} style={{ background: 'none', border: '1px solid #e8e6e1', borderRadius: '5px', padding: '2px 8px', fontSize: '10px', color: '#6b6560', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}>
+                            Copy
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  {isOwner && (
+                    <div style={{ display: 'flex', gap: '6px' }}>
+                      <button onClick={() => openEditVault(v)} style={{ background: 'none', border: '1px solid #e8e6e1', borderRadius: '6px', padding: '5px 10px', fontSize: '11px', color: '#6b6560', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}>Edit</button>
+                      <button onClick={() => { if (confirm(`Delete "${v.label}"?`)) deleteVaultEntry(v.id) }} style={{ background: 'none', border: '1px solid rgba(220,38,38,.3)', borderRadius: '6px', padding: '5px 10px', fontSize: '11px', color: '#dc2626', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}>Delete</button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {showVaultModal && (
+            <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(15,31,51,.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '20px', overflowY: 'auto' }} onClick={e => { if (e.target === e.currentTarget) { setShowVaultModal(false); setEditingVault(null) } }}>
+              <div style={{ background: 'white', borderRadius: '16px', padding: '36px', width: '100%', maxWidth: '480px', boxShadow: '0 24px 60px rgba(0,0,0,.2)', margin: 'auto' }}>
+                <h2 style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '24px', color: '#1C3557', marginBottom: '24px' }}>{editingVault ? `Edit ${editingVault.label}` : 'Add Login'}</h2>
+
+                {vaultMsg?.type === 'error' && (
+                  <div style={{ padding: '8px 14px', borderRadius: '6px', marginBottom: '16px', fontSize: '12px', background: 'rgba(220,38,38,.08)', color: '#dc2626', border: '1px solid rgba(220,38,38,.2)' }}>{vaultMsg.text}</div>
+                )}
+
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={labelStyle}>Label</label>
+                  <input value={vaultForm.label} onChange={e => setVaultForm(f => ({...f, label: e.target.value}))} placeholder="e.g. Gmail – DJC Main" style={inputStyle} />
+                </div>
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={labelStyle}>Username / Email</label>
+                  <input value={vaultForm.username} onChange={e => setVaultForm(f => ({...f, username: e.target.value}))} placeholder="hello@dakjencreative.com" style={inputStyle} />
+                </div>
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={labelStyle}>{editingVault ? 'Password (leave blank to keep)' : 'Password'}</label>
+                  <input type="text" value={vaultForm.password} onChange={e => setVaultForm(f => ({...f, password: e.target.value}))} placeholder="Enter password" style={{ ...inputStyle, fontFamily: 'monospace' }} />
+                </div>
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={labelStyle}>URL (optional)</label>
+                  <input value={vaultForm.url} onChange={e => setVaultForm(f => ({...f, url: e.target.value}))} placeholder="https://mail.google.com" style={inputStyle} />
+                </div>
+                <div style={{ marginBottom: '24px' }}>
+                  <label style={labelStyle}>Notes (optional)</label>
+                  <textarea value={vaultForm.notes} onChange={e => setVaultForm(f => ({...f, notes: e.target.value}))} placeholder="Recovery email, 2FA info, etc." rows={3} style={{ ...inputStyle, resize: 'vertical' }} />
+                </div>
+                <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                  <button onClick={() => { setShowVaultModal(false); setEditingVault(null) }} style={{ padding: '10px 20px', border: '1px solid #e8e6e1', borderRadius: '8px', background: 'none', color: '#6b6560', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', fontSize: '13px' }}>Cancel</button>
+                  <button onClick={saveVaultEntry} style={{ padding: '10px 24px', border: 'none', borderRadius: '8px', background: '#b07a8a', color: 'white', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', fontSize: '13px', fontWeight: 500 }}>{editingVault ? 'Save Changes' : 'Save Login'}</button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )
 
       default:
         const meta = BIZ_LINES_META[page as keyof typeof BIZ_LINES_META]
