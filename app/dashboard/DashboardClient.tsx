@@ -944,7 +944,7 @@ export default function DashboardClient({ session }: { session: Session }) {
               <label style={labelStyle}>Pay Schedule</label>
               <select value={teamForm.pay_schedule} onChange={e => setTeamForm(f => ({...f, pay_schedule: e.target.value}))} style={inputStyle}>
                 <option value="">None</option>
-                <option value="1st & 15th">1st & 15th</option>
+                <option value="15th & 30th">15th & 30th</option>
                 <option value="Bi-weekly">Bi-weekly</option>
                 <option value="Monthly">Monthly</option>
                 <option value="Weekly">Weekly</option>
