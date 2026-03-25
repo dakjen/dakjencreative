@@ -42,8 +42,13 @@ export async function POST(req: Request) {
       RETURNING id, name, email, role, initials, hourly_rate, weekly_hours, pay_schedule
     `
     return NextResponse.json(rows[0])
-  } catch {
-    return NextResponse.json({ error: 'Email already exists' }, { status: 409 })
+  } catch (err: any) {
+    const msg = err?.message ?? String(err)
+    if (msg.toLowerCase().includes('unique') || msg.toLowerCase().includes('duplicate')) {
+      return NextResponse.json({ error: 'Email already exists' }, { status: 409 })
+    }
+    console.error('POST /api/users error:', msg)
+    return NextResponse.json({ error: msg }, { status: 500 })
   }
 }
 
@@ -74,7 +79,6 @@ export async function PATCH(req: Request) {
 
   const db = sql()
 
-  // Fetch current values to use as fallbacks
   const current = await db`SELECT name, email, role, initials FROM users WHERE id = ${id}`
   if (current.length === 0) {
     return NextResponse.json({ error: 'User not found' }, { status: 404 })
@@ -116,8 +120,13 @@ export async function PATCH(req: Request) {
         RETURNING id, name, email, role, initials, hourly_rate, weekly_hours, pay_schedule
       `
     }
-  } catch {
-    return NextResponse.json({ error: 'Email already exists' }, { status: 409 })
+  } catch (err: any) {
+    const msg = err?.message ?? String(err)
+    if (msg.toLowerCase().includes('unique') || msg.toLowerCase().includes('duplicate')) {
+      return NextResponse.json({ error: 'Email already exists' }, { status: 409 })
+    }
+    console.error('PATCH /api/users error:', msg)
+    return NextResponse.json({ error: msg }, { status: 500 })
   }
 
   return NextResponse.json(rows[0])
