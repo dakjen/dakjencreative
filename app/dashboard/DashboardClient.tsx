@@ -16,9 +16,11 @@ const NAV = [
   { id: 'overview',      label: 'Dashboard',      section: 'overview',  ownerOnly: false },
   { id: 'revenue',       label: 'Revenue Tracker',section: 'overview',  ownerOnly: true  },
   { id: 'tasks',         label: 'Tasks',           section: 'overview',  ownerOnly: false },
-  { id: 'djc',           label: 'DJC Marketing',   section: 'lines',     ownerOnly: false },
-  { id: 'notable',       label: 'Notable',         section: 'lines',     ownerOnly: false },
-  { id: 'elitewise',     label: 'Elitewise',       section: 'lines',     ownerOnly: false },
+  { id: 'djc',           label: 'DJC Marketing',      section: 'lines', ownerOnly: false },
+  { id: 'notable',       label: 'Notable',            section: 'lines', ownerOnly: false },
+  { id: 'elitewise',     label: 'Elitewise',          section: 'lines', ownerOnly: false },
+  { id: 'fractional',    label: 'Fractional Services',section: 'lines', ownerOnly: false },
+  { id: 'community',     label: 'Business Community', section: 'lines', ownerOnly: false },
   { id: 'websites',      label: 'Websites',        section: 'workspace', ownerOnly: false },
   { id: 'vault',         label: 'Password Vault',  section: 'workspace', ownerOnly: false },
   { id: 'integrations',  label: 'Integrations',    section: 'workspace', ownerOnly: true  },
@@ -28,7 +30,7 @@ const NAV = [
 
 const PAGE_TITLES: Record<string, string> = {
   overview: 'Dashboard', revenue: 'Revenue Tracker', tasks: 'Tasks',
-  djc: 'DJC Marketing', notable: 'Notable', elitewise: 'Elitewise Escapes',
+  djc: 'DJC Marketing', notable: 'Notable', elitewise: 'Elitewise Escapes', fractional: 'Fractional Services', community: 'Business Community',
   websites: 'Websites', vault: 'Password Vault', integrations: 'Integrations',
   financials: 'Financials', team: 'Team',
 }
