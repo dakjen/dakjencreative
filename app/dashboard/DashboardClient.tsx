@@ -37,7 +37,8 @@ const PAGE_TITLES: Record<string, string> = {
 
 // ── TASK TYPES ──
 interface Task { id: number; text: string; tag: string; due: string | null; assignee: string | null; done: boolean }
-interface WebsiteItem { id: number; name: string; url: string; description: string | null; icon: string; created_at: string }
+interface WebsiteItem { id: number; name: string; url: string; description: string | null; icon: string; business_line: string | null; created_at: string }
+interface Contract { id: number; client_name: string; business_line: string; stage: string; probability: number; contract_value: number | null; monthly_retainer: number | null; start_date: string | null; end_date: string | null; notes: string | null }
 interface QuickLinkItem { id: number; name: string; url: string; icon: string; category: string; created_at: string }
 interface VaultEntry { id: number; label: string; username: string | null; password: string; url: string | null; notes: string | null }
 
@@ -73,7 +74,11 @@ export default function DashboardClient({ session }: { session: Session }) {
   const [websitesLoaded, setWebsitesLoaded] = useState(false)
   const [showWebsiteModal, setShowWebsiteModal] = useState(false)
   const [editingWebsite, setEditingWebsite] = useState<WebsiteItem | null>(null)
-  const [websiteForm, setWebsiteForm] = useState({ name: '', url: '', description: '', icon: '🌐' })
+  const [websiteForm, setWebsiteForm] = useState({ name: '', url: '', description: '', icon: '🌐', business_line: '' })
+
+  // ── CONTRACTS STATE ──
+  const [contracts, setContracts] = useState<Contract[]>([])
+  const [contractsLoaded, setContractsLoaded] = useState(false)
 
   // ── QUICK LINKS STATE ──
   const [quickLinks, setQuickLinks] = useState<QuickLinkItem[]>([])
@@ -137,12 +142,21 @@ export default function DashboardClient({ session }: { session: Session }) {
     setVaultLoaded(true)
   }
 
+  async function loadContracts() {
+    if (contractsLoaded) return
+    const res  = await fetch('/api/contracts')
+    const data = await res.json()
+    setContracts(Array.isArray(data) ? data : [])
+    setContractsLoaded(true)
+  }
+
   // Load quick links on mount (needed for overview page) + restore page data
   useEffect(() => {
     loadQuickLinks()
-    loadTeam() // needed for task assignee dropdown
-    if (page === 'tasks') loadTasks()
-    if (page === 'websites') loadWebsites()
+    loadTeam()
+    loadTasks()
+    loadContracts()
+    loadWebsites()
     if (page === 'vault') loadVault()
   }, [])
 
@@ -242,7 +256,7 @@ export default function DashboardClient({ session }: { session: Session }) {
       }
       setShowWebsiteModal(false)
       setEditingWebsite(null)
-      setWebsiteForm({ name: '', url: '', description: '', icon: '🌐' })
+      setWebsiteForm({ name: '', url: '', description: '', icon: '🌐', business_line: '' })
     }
   }
 
@@ -658,7 +672,7 @@ export default function DashboardClient({ session }: { session: Session }) {
         <div className="animate-fadeUp">
           {isOwner && (
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '16px' }}>
-              <button onClick={() => { setEditingWebsite(null); setWebsiteForm({ name: '', url: '', description: '', icon: '🌐' }); setShowWebsiteModal(true) }}
+              <button onClick={() => { setEditingWebsite(null); setWebsiteForm({ name: '', url: '', description: '', icon: '🌐', business_line: '' }); setShowWebsiteModal(true) }}
                 style={{ padding: '8px 18px', borderRadius: '8px', border: 'none', background: '#b07a8a', color: 'white', fontSize: '13px', fontWeight: 500, cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}>
                 + Add Website
               </button>
@@ -683,7 +697,7 @@ export default function DashboardClient({ session }: { session: Session }) {
                   </div>
                   {isOwner ? (
                     <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
-                      <button onClick={() => { setEditingWebsite(s); setWebsiteForm({ name: s.name, url: s.url, description: s.description ?? '', icon: s.icon }); setShowWebsiteModal(true) }}
+                      <button onClick={() => { setEditingWebsite(s); setWebsiteForm({ name: s.name, url: s.url, description: s.description ?? '', icon: s.icon, business_line: s.business_line ?? '' }); setShowWebsiteModal(true) }}
                         style={{ background: 'none', border: 'none', color: '#9e9a93', cursor: 'pointer', fontSize: '12px' }}>Edit</button>
                       <button onClick={() => deleteWebsite(s.id)}
                         style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', fontSize: '12px' }}>Delete</button>
@@ -814,15 +828,118 @@ export default function DashboardClient({ session }: { session: Session }) {
         </div>
       )
 
-      default:
+      default: {
         const meta = BIZ_LINES_META[page as keyof typeof BIZ_LINES_META]
         if (!meta) return <div style={{ color: '#9e9a93', padding: '40px' }}>Page not found.</div>
+
+        const lineContracts = contracts.filter(c => c.business_line === page)
+        const lineTasks     = tasks.filter(t => t.tag === page)
+        const lineLinks     = websites.filter(w => w.business_line === page)
+
+        const activeMRR     = lineContracts.filter(c => c.stage === 'active').reduce((s, c) => s + (c.monthly_retainer ?? 0) / 100, 0)
+        const activeValue   = lineContracts.filter(c => c.stage === 'active').reduce((s, c) => s + (c.contract_value ?? 0) / 100, 0)
+        const weightedPipe  = lineContracts.filter(c => c.stage !== 'active').reduce((s, c) => s + ((c.contract_value ?? 0) / 100) * (c.probability / 100), 0)
+        const openTasks     = lineTasks.filter(t => !t.done).length
+
+        const stageColors: Record<string, string> = { active: '#16a34a', proposal: '#b07a8a', pipeline: '#6366f1', negotiation: '#d97706', closed: '#9e9a93' }
+
         return (
-          <div className="animate-fadeUp" style={card}>
-            <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '28px', color: '#1C3557', marginBottom: '8px' }}>{meta.label}</div>
-            <div style={{ fontSize: '13px', color: '#9e9a93' }}>{meta.desc}</div>
+          <div className="animate-fadeUp" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {/* Header */}
+            <div style={{ ...card }}>
+              <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '28px', color: '#1C3557', marginBottom: '4px' }}>{meta.label}</div>
+              <div style={{ fontSize: '13px', color: '#9e9a93' }}>{meta.desc}</div>
+            </div>
+
+            {/* Revenue Metrics */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '12px' }}>
+              {[
+                { label: 'Active MRR',        value: activeMRR   > 0 ? `$${activeMRR.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : '—' },
+                { label: 'Active Value',       value: activeValue > 0 ? `$${activeValue.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : '—' },
+                { label: 'Weighted Pipeline',  value: weightedPipe > 0 ? `$${weightedPipe.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : '—' },
+                { label: 'Open Tasks',         value: openTasks.toString() },
+              ].map(m => (
+                <div key={m.label} style={{ ...card, textAlign: 'center' }}>
+                  <div style={{ fontSize: '22px', fontWeight: 600, color: '#1C3557', fontFamily: 'Cormorant Garamond, serif' }}>{m.value}</div>
+                  <div style={{ fontSize: '11px', color: '#9e9a93', marginTop: '4px', textTransform: 'uppercase', letterSpacing: '.06em' }}>{m.label}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Contracts / Pipeline */}
+            <div style={card}>
+              <div style={{ fontSize: '13px', fontWeight: 500, color: '#1C3557', marginBottom: '16px' }}>Pipeline & Contracts</div>
+              {lineContracts.length === 0 ? (
+                <div style={{ fontSize: '12px', color: '#9e9a93' }}>No contracts yet for this line.</div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {lineContracts.map(c => (
+                    <div key={c.id} style={{ display: 'grid', gridTemplateColumns: '1fr 100px 80px 120px', gap: '12px', alignItems: 'center', padding: '12px 16px', background: '#f9f8f6', borderRadius: '8px', fontSize: '13px' }}>
+                      <div style={{ fontWeight: 500, color: '#1a1714' }}>{c.client_name}</div>
+                      <div>
+                        <span style={{ fontSize: '11px', fontWeight: 500, padding: '2px 8px', borderRadius: '20px', background: `${stageColors[c.stage] ?? '#9e9a93'}18`, color: stageColors[c.stage] ?? '#9e9a93', textTransform: 'capitalize' }}>{c.stage}</span>
+                      </div>
+                      <div style={{ fontSize: '12px', color: '#6b6560' }}>{c.probability}%</div>
+                      <div style={{ fontSize: '12px', color: '#1C3557', textAlign: 'right' }}>
+                        {c.monthly_retainer ? `$${(c.monthly_retainer / 100).toLocaleString()}/mo` : c.contract_value ? `$${(c.contract_value / 100).toLocaleString()}` : '—'}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Tasks */}
+            <div style={card}>
+              <div style={{ fontSize: '13px', fontWeight: 500, color: '#1C3557', marginBottom: '16px' }}>Tasks</div>
+              {lineTasks.length === 0 ? (
+                <div style={{ fontSize: '12px', color: '#9e9a93' }}>No tasks for this line.</div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  {lineTasks.map(t => (
+                    <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 14px', background: '#f9f8f6', borderRadius: '8px' }}>
+                      <div onClick={() => toggleTask(t.id, t.done)} style={{ width: '16px', height: '16px', borderRadius: '50%', border: `2px solid ${t.done ? '#b07a8a' : '#e8e6e1'}`, cursor: 'pointer', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: t.done ? '#b07a8a' : 'transparent', color: 'white', fontSize: '9px' }}>{t.done && '✓'}</div>
+                      <div style={{ flex: 1, fontSize: '13px', color: t.done ? '#9e9a93' : '#1a1714', textDecoration: t.done ? 'line-through' : 'none' }}>{t.text}</div>
+                      {t.due && <div style={{ fontSize: '11px', color: '#9e9a93' }}>{new Date(t.due + 'T00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</div>}
+                      {t.assignee && <div style={{ fontSize: '11px', background: '#f0ece8', padding: '2px 8px', borderRadius: '4px', color: '#6b6560' }}>{t.assignee}</div>}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Key Links */}
+            <div style={card}>
+              <div style={{ fontSize: '13px', fontWeight: 500, color: '#1C3557', marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                Key Links
+                {isOwner && <button onClick={() => { setEditingWebsite(null); setWebsiteForm({ name: '', url: '', description: '', icon: '🌐', business_line: page }); setShowWebsiteModal(true) }} style={{ background: 'none', border: 'none', color: '#b07a8a', fontSize: '12px', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}>+ Add</button>}
+              </div>
+              {lineLinks.length === 0 ? (
+                <div style={{ fontSize: '12px', color: '#9e9a93' }}>No links yet. {isOwner ? 'Add one above.' : ''}</div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '8px' }}>
+                  {lineLinks.map(w => (
+                    <div key={w.id} style={{ position: 'relative' }}>
+                      <a href={w.url} target="_blank" rel="noreferrer" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', padding: '12px 8px', background: '#f5f4f2', borderRadius: '8px', textDecoration: 'none' }}
+                        onMouseEnter={e => (e.currentTarget.style.background = '#1C3557')}
+                        onMouseLeave={e => (e.currentTarget.style.background = '#f5f4f2')}>
+                        <span style={{ fontSize: '18px' }}>{w.icon}</span>
+                        <span style={{ fontSize: '10px', color: '#6b6560', textAlign: 'center' }}>{w.name}</span>
+                      </a>
+                      {isOwner && (
+                        <div style={{ position: 'absolute', top: '2px', right: '2px', display: 'flex', gap: '2px' }}>
+                          <button onClick={() => { setEditingWebsite(w); setWebsiteForm({ name: w.name, url: w.url, description: w.description ?? '', icon: w.icon, business_line: w.business_line ?? '' }); setShowWebsiteModal(true) }} style={{ background: 'rgba(255,255,255,.9)', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '9px', padding: '2px 4px', color: '#9e9a93' }}>Edit</button>
+                          <button onClick={() => deleteWebsite(w.id)} style={{ background: 'rgba(255,255,255,.9)', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '9px', padding: '2px 4px', color: '#dc2626' }}>×</button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         )
+      }
     }
   }
 
@@ -901,9 +1018,20 @@ export default function DashboardClient({ session }: { session: Session }) {
               <label style={labelStyle}>URL</label>
               <input value={websiteForm.url} onChange={e => setWebsiteForm(f => ({...f, url: e.target.value}))} placeholder="https://example.com" style={inputStyle} />
             </div>
-            <div style={{ marginBottom: '24px' }}>
+            <div style={{ marginBottom: '16px' }}>
               <label style={labelStyle}>Description</label>
               <input value={websiteForm.description} onChange={e => setWebsiteForm(f => ({...f, description: e.target.value}))} placeholder="Short description" style={inputStyle} />
+            </div>
+            <div style={{ marginBottom: '24px' }}>
+              <label style={labelStyle}>Business Line (optional)</label>
+              <select value={websiteForm.business_line} onChange={e => setWebsiteForm(f => ({...f, business_line: e.target.value}))} style={inputStyle}>
+                <option value="">None (show on Websites tab only)</option>
+                <option value="djc">DJC Marketing</option>
+                <option value="notable">Notable</option>
+                <option value="elitewise">Elitewise Escapes</option>
+                <option value="fractional">Fractional Services</option>
+                <option value="community">Business Community</option>
+              </select>
             </div>
             <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
               <button onClick={() => { setShowWebsiteModal(false); setEditingWebsite(null) }} style={{ padding: '10px 20px', border: '1px solid #e8e6e1', borderRadius: '8px', background: 'none', color: '#6b6560', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', fontSize: '13px' }}>Cancel</button>
