@@ -29,7 +29,8 @@ export async function DELETE(_: Request, { params }: { params: { id: string } })
     await db`DELETE FROM tasks WHERE id = ${params.id}`
   } else {
     const userId = (session.user as any).id
-    await db`DELETE FROM tasks WHERE id = ${params.id} AND created_by = ${userId}`
+    // Allow deleting own tasks OR tasks with no creator (seeded/orphaned)
+    await db`DELETE FROM tasks WHERE id = ${params.id} AND (created_by = ${userId} OR created_by IS NULL)`
   }
   return NextResponse.json({ success: true })
 }

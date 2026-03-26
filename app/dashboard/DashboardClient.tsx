@@ -61,12 +61,12 @@ export default function DashboardClient({ session }: { session: Session }) {
   const [newTask, setNewTask]   = useState({ text: '', tag: 'djc', due: '', assignee: 'Dakotah' })
 
   // ── TEAM STATE ──
-  interface TeamMember { id: number; name: string; email: string; role: string; initials: string; hourly_rate: number | null; weekly_hours: number | null; pay_schedule: string | null; created_at: string }
+  interface TeamMember { id: number; name: string; email: string; role: string; initials: string; hourly_rate: number | null; weekly_hours: number | null; pay_schedule: string | null; business_lines: string; created_at: string }
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([])
   const [teamLoaded, setTeamLoaded]   = useState(false)
   const [showTeamModal, setShowTeamModal] = useState(false)
   const [editingMember, setEditingMember] = useState<TeamMember | null>(null)
-  const [teamForm, setTeamForm] = useState({ name: '', email: '', password: '', role: 'team', hourly_rate: '', weekly_hours: '', pay_schedule: '' })
+  const [teamForm, setTeamForm] = useState({ name: '', email: '', password: '', role: 'team', hourly_rate: '', weekly_hours: '', pay_schedule: '', business_lines: 'all' })
   const [teamMsg, setTeamMsg]   = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
   // ── WEBSITES STATE ──
@@ -178,7 +178,7 @@ export default function DashboardClient({ session }: { session: Session }) {
     if (res.ok) {
       const member = await res.json()
       setTeamMembers(ms => [...ms, member])
-      setTeamForm({ name: '', email: '', password: '', role: 'team', hourly_rate: '', weekly_hours: '', pay_schedule: '' })
+      setTeamForm({ name: '', email: '', password: '', role: 'team', hourly_rate: '', weekly_hours: '', pay_schedule: '', business_lines: 'all' })
       setShowTeamModal(false)
       setTeamMsg({ type: 'success', text: `${member.name} added successfully.` })
     } else {
@@ -198,6 +198,7 @@ export default function DashboardClient({ session }: { session: Session }) {
       hourly_rate: teamForm.hourly_rate ? Number(teamForm.hourly_rate) : null,
       weekly_hours: teamForm.weekly_hours ? Number(teamForm.weekly_hours) : null,
       pay_schedule: teamForm.pay_schedule || null,
+      business_lines: teamForm.business_lines || 'all',
     }
     if (teamForm.password.trim()) body.password = teamForm.password.trim()
     const res = await fetch('/api/users', {
@@ -210,7 +211,7 @@ export default function DashboardClient({ session }: { session: Session }) {
       setTeamMembers(ms => ms.map(m => m.id === updated.id ? { ...m, ...updated } : m))
       setEditingMember(null)
       setShowTeamModal(false)
-      setTeamForm({ name: '', email: '', password: '', role: 'team', hourly_rate: '', weekly_hours: '', pay_schedule: '' })
+      setTeamForm({ name: '', email: '', password: '', role: 'team', hourly_rate: '', weekly_hours: '', pay_schedule: '', business_lines: 'all' })
       setTeamMsg({ type: 'success', text: `${updated.name} updated.` })
     } else {
       const err = await res.json()
@@ -230,6 +231,7 @@ export default function DashboardClient({ session }: { session: Session }) {
       hourly_rate: m.hourly_rate?.toString() ?? '',
       weekly_hours: m.weekly_hours?.toString() ?? '',
       pay_schedule: m.pay_schedule ?? '',
+      business_lines: m.business_lines ?? 'all',
     })
     setTeamMsg(null)
     setShowTeamModal(true)
@@ -384,8 +386,16 @@ export default function DashboardClient({ session }: { session: Session }) {
   const tagBg: Record<string, string>     = { djc: 'rgba(28,53,87,.08)', notable: 'rgba(176,122,138,.12)', elitewise: 'rgba(99,102,241,.08)', fractional: 'rgba(5,150,105,.08)', community: 'rgba(217,119,6,.08)' }
   const tagLabel: Record<string, string>  = { djc: 'DJC Marketing', notable: 'Notable', elitewise: 'Elitewise', fractional: 'Fractional', community: 'Community' }
 
-  // Filter nav items by role
-  const filteredNav = NAV.filter(n => isOwner || !n.ownerOnly)
+  // Filter nav items by role and business line permissions
+  const userLines: string[] = isOwner ? [] : (user.business_lines ?? 'all').split(',').map((s: string) => s.trim())
+  const filteredNav = NAV.filter(n => {
+    if (!isOwner && n.ownerOnly) return false
+    if (!isOwner && n.section === 'lines') {
+      if (userLines.includes('all')) return true
+      return userLines.includes(n.id)
+    }
+    return true
+  })
 
   // ── SIDEBAR ──
   const sidebar = (
@@ -719,7 +729,7 @@ export default function DashboardClient({ session }: { session: Session }) {
         <div className="animate-fadeUp">
           {user.role === 'owner' && (
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '16px' }}>
-              <button onClick={() => { setTeamMsg(null); setEditingMember(null); setTeamForm({ name: '', email: '', password: '', role: 'team', hourly_rate: '', weekly_hours: '', pay_schedule: '' }); setShowTeamModal(true) }} style={{ padding: '8px 18px', borderRadius: '8px', border: 'none', background: '#b07a8a', color: 'white', fontSize: '13px', fontWeight: 500, cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}>
+              <button onClick={() => { setTeamMsg(null); setEditingMember(null); setTeamForm({ name: '', email: '', password: '', role: 'team', hourly_rate: '', weekly_hours: '', pay_schedule: '', business_lines: 'all' }); setShowTeamModal(true) }} style={{ padding: '8px 18px', borderRadius: '8px', border: 'none', background: '#b07a8a', color: 'white', fontSize: '13px', fontWeight: 500, cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}>
                 + Add Team Member
               </button>
             </div>
@@ -754,6 +764,11 @@ export default function DashboardClient({ session }: { session: Session }) {
                       {m.hourly_rate != null && <div>${Number(m.hourly_rate).toFixed(2)}/hr</div>}
                       {m.weekly_hours != null && <div>{m.weekly_hours} hrs/wk</div>}
                       {m.pay_schedule && <div style={{ color: '#9e9a93', marginTop: '2px' }}>{m.pay_schedule}</div>}
+                    </div>
+                  )}
+                  {user.role === 'owner' && m.role !== 'owner' && (
+                    <div style={{ marginTop: '8px', fontSize: '10px', color: '#9e9a93', textAlign: 'center' }}>
+                      {m.business_lines === 'all' ? 'All lines' : (m.business_lines || 'No access').replace(/,/g, ' · ')}
                     </div>
                   )}
                 </div>
@@ -1089,6 +1104,35 @@ export default function DashboardClient({ session }: { session: Session }) {
                 <option value="Monthly">Monthly</option>
                 <option value="Weekly">Weekly</option>
               </select>
+            </div>
+            <div style={{ marginBottom: '24px' }}>
+              <label style={labelStyle}>Business Line Access</label>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '12px', background: '#f9f8f6', borderRadius: '8px', border: '1px solid #e8e6e1' }}>
+                {/* All-access toggle */}
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', color: '#1a1714' }}>
+                  <input type="checkbox" checked={teamForm.business_lines === 'all'} onChange={e => setTeamForm(f => ({ ...f, business_lines: e.target.checked ? 'all' : '' }))} />
+                  All Lines (full access)
+                </label>
+                {teamForm.business_lines !== 'all' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', paddingTop: '4px', borderTop: '1px solid #e8e6e1', marginTop: '4px' }}>
+                    {(['djc','notable','elitewise','fractional','community'] as const).map(line => {
+                      const selected = teamForm.business_lines.split(',').map(s => s.trim()).filter(Boolean)
+                      const checked = selected.includes(line)
+                      const labels: Record<string, string> = { djc: 'DJC Marketing', notable: 'Notable', elitewise: 'Elitewise Escapes', fractional: 'Fractional Services', community: 'Business Community' }
+                      return (
+                        <label key={line} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', color: '#6b6560' }}>
+                          <input type="checkbox" checked={checked} onChange={e => {
+                            const cur = teamForm.business_lines.split(',').map(s => s.trim()).filter(Boolean)
+                            const next = e.target.checked ? [...cur, line] : cur.filter(x => x !== line)
+                            setTeamForm(f => ({ ...f, business_lines: next.join(',') || '' }))
+                          }} />
+                          {labels[line]}
+                        </label>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
             <div style={{ fontSize: '11px', color: '#9e9a93', marginBottom: '20px' }}>Initials will be auto-generated from the name.</div>
             <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>

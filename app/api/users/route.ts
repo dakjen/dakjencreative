@@ -11,7 +11,7 @@ export async function GET() {
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const db = sql()
-  const users = await db`SELECT id, name, email, role, initials, hourly_rate, weekly_hours, pay_schedule, created_at FROM users ORDER BY id`
+  const users = await db`SELECT id, name, email, role, initials, hourly_rate, weekly_hours, pay_schedule, business_lines, created_at FROM users ORDER BY id`
 
   const isOwner = (session.user as any).role === 'owner'
   if (!isOwner) {
@@ -27,7 +27,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Owner only' }, { status: 403 })
   }
 
-  const { name, email, password, role, initials, hourly_rate, weekly_hours, pay_schedule } = await req.json()
+  const { name, email, password, role, initials, hourly_rate, weekly_hours, pay_schedule, business_lines } = await req.json()
   if (!name || !email || !password) {
     return NextResponse.json({ error: 'name, email, password required' }, { status: 400 })
   }
@@ -37,9 +37,9 @@ export async function POST(req: Request) {
 
   try {
     const rows = await db`
-      INSERT INTO users (name, email, password, role, initials, hourly_rate, weekly_hours, pay_schedule)
-      VALUES (${name}, ${email.toLowerCase()}, ${hash}, ${role ?? 'team'}, ${initials ?? name.slice(0,2).toUpperCase()}, ${hourly_rate ?? null}, ${weekly_hours ?? null}, ${pay_schedule ?? null})
-      RETURNING id, name, email, role, initials, hourly_rate, weekly_hours, pay_schedule
+      INSERT INTO users (name, email, password, role, initials, hourly_rate, weekly_hours, pay_schedule, business_lines)
+      VALUES (${name}, ${email.toLowerCase()}, ${hash}, ${role ?? 'team'}, ${initials ?? name.slice(0,2).toUpperCase()}, ${hourly_rate ?? null}, ${weekly_hours ?? null}, ${pay_schedule ?? null}, ${business_lines ?? 'all'})
+      RETURNING id, name, email, role, initials, hourly_rate, weekly_hours, pay_schedule, business_lines
     `
     return NextResponse.json(rows[0])
   } catch (err: any) {
@@ -72,14 +72,14 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: 'Owner only' }, { status: 403 })
   }
 
-  const { id, name, email, role, password, hourly_rate, weekly_hours, pay_schedule } = await req.json()
+  const { id, name, email, role, password, hourly_rate, weekly_hours, pay_schedule, business_lines } = await req.json()
   if (!id) {
     return NextResponse.json({ error: 'id required' }, { status: 400 })
   }
 
   const db = sql()
 
-  const current = await db`SELECT name, email, role, initials FROM users WHERE id = ${id}`
+  const current = await db`SELECT name, email, role, initials, business_lines FROM users WHERE id = ${id}`
   if (current.length === 0) {
     return NextResponse.json({ error: 'User not found' }, { status: 404 })
   }
@@ -88,6 +88,7 @@ export async function PATCH(req: Request) {
   const newEmail = email ? email.toLowerCase() : current[0].email
   const newRole = role ?? current[0].role
   const newInitials = newName.slice(0, 2).toUpperCase()
+  const newBusinessLines = business_lines ?? current[0].business_lines ?? 'all'
 
   let rows
   try {
@@ -102,9 +103,10 @@ export async function PATCH(req: Request) {
             password = ${hash},
             hourly_rate = ${hourly_rate ?? null},
             weekly_hours = ${weekly_hours ?? null},
-            pay_schedule = ${pay_schedule ?? null}
+            pay_schedule = ${pay_schedule ?? null},
+            business_lines = ${newBusinessLines}
         WHERE id = ${id}
-        RETURNING id, name, email, role, initials, hourly_rate, weekly_hours, pay_schedule
+        RETURNING id, name, email, role, initials, hourly_rate, weekly_hours, pay_schedule, business_lines
       `
     } else {
       rows = await db`
@@ -115,9 +117,10 @@ export async function PATCH(req: Request) {
             initials = ${newInitials},
             hourly_rate = ${hourly_rate ?? null},
             weekly_hours = ${weekly_hours ?? null},
-            pay_schedule = ${pay_schedule ?? null}
+            pay_schedule = ${pay_schedule ?? null},
+            business_lines = ${newBusinessLines}
         WHERE id = ${id}
-        RETURNING id, name, email, role, initials, hourly_rate, weekly_hours, pay_schedule
+        RETURNING id, name, email, role, initials, hourly_rate, weekly_hours, pay_schedule, business_lines
       `
     }
   } catch (err: any) {
