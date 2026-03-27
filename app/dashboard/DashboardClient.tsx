@@ -96,6 +96,9 @@ export default function DashboardClient({ session }: { session: Session }) {
   const [vaultMsg, setVaultMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [revealedIds, setRevealedIds] = useState<Set<number>>(new Set())
 
+  // ── ONBOARDING STATE ──
+  const [onboardingStep, setOnboardingStep] = useState<number | null>(null)
+
   const user     = session.user as any
   const isOwner  = user.role === 'owner'
   const greeting = (() => { const h = new Date().getHours(); return h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening' })()
@@ -158,6 +161,14 @@ export default function DashboardClient({ session }: { session: Session }) {
     loadContracts()
     loadWebsites()
     if (page === 'vault') loadVault()
+
+    // Show onboarding for team members who haven't completed it
+    if (!isOwner) {
+      const key = `onboarded_${user.id}`
+      if (!localStorage.getItem(key)) {
+        setOnboardingStep(0)
+      }
+    }
   }, [])
 
   // ── TEAM CRUD ──
@@ -1216,6 +1227,142 @@ export default function DashboardClient({ session }: { session: Session }) {
           </div>
         </div>
       )}
+
+      {/* Onboarding Modal */}
+      {onboardingStep !== null && (() => {
+        const steps = [
+          {
+            icon: '✦',
+            title: `Welcome, ${user.name?.split(' ')[0]}.`,
+            body: `You're now part of the DakJen Creative Command Center — our internal hub for staying aligned, organized, and moving fast. This quick tour will walk you through everything you need to know.`,
+            bullets: null,
+          },
+          {
+            icon: '🏠',
+            title: 'Your Dashboard',
+            body: 'The Dashboard is your home base. It shows your quick-access apps and tools so you can get to work without hunting for links.',
+            bullets: null,
+          },
+          {
+            icon: '✓',
+            title: 'Tasks',
+            body: 'All active work lives on the Tasks page. Check it daily — tasks are tagged to business lines so nothing falls through the cracks.',
+            bullets: ['Check your assigned tasks every morning', 'Mark tasks done as soon as you complete them', 'Add tasks as new work comes up — don\'t hold it in your head'],
+          },
+          {
+            icon: '◈',
+            title: 'Business Lines',
+            body: 'Each business line has its own page with pipeline status, revenue metrics, tasks, and key links. You\'ll only see the lines relevant to your role.',
+            bullets: null,
+          },
+          {
+            icon: '🔒',
+            title: 'Password Vault',
+            body: 'Shared credentials for team accounts are stored here securely. Click "View" to reveal a password when you need it.',
+            bullets: ['Never share vault passwords over email or Slack', 'If you notice a credential is wrong, let Dakotah know', 'Don\'t screenshot or copy passwords to personal devices'],
+          },
+          {
+            icon: '⭐',
+            title: 'Best Practices',
+            body: 'A few ground rules to keep the team running smoothly:',
+            bullets: [
+              'Keep tasks updated — stale tasks create confusion',
+              'Use the correct business line tag on every task',
+              'Go to the vault first before asking for a password',
+              'If you need access to a page you can\'t see, ask Dakotah',
+              'This portal is internal — don\'t share login info with clients',
+            ],
+          },
+        ]
+
+        const step = steps[onboardingStep]
+        const isLast = onboardingStep === steps.length - 1
+
+        function finishOnboarding() {
+          localStorage.setItem(`onboarded_${user.id}`, '1')
+          setOnboardingStep(null)
+        }
+
+        return (
+          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 300, background: 'rgba(15,31,51,.75)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+            <div style={{ background: 'white', borderRadius: '20px', width: '100%', maxWidth: '520px', boxShadow: '0 32px 80px rgba(0,0,0,.3)', overflow: 'hidden' }}>
+              {/* Progress bar */}
+              <div style={{ height: '3px', background: '#f0ede8' }}>
+                <div style={{ height: '100%', background: '#b07a8a', width: `${((onboardingStep + 1) / steps.length) * 100}%`, transition: 'width .3s ease' }} />
+              </div>
+
+              <div style={{ padding: '40px 40px 32px' }}>
+                {/* Icon */}
+                <div style={{ width: '56px', height: '56px', borderRadius: '14px', background: 'rgba(28,53,87,.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '26px', marginBottom: '24px' }}>
+                  {step.icon}
+                </div>
+
+                {/* Step label */}
+                <div style={{ fontSize: '10px', letterSpacing: '.12em', textTransform: 'uppercase', color: '#b07a8a', marginBottom: '8px', fontFamily: 'DM Sans, sans-serif' }}>
+                  Step {onboardingStep + 1} of {steps.length}
+                </div>
+
+                {/* Title */}
+                <h2 style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '28px', fontWeight: 600, color: '#1C3557', marginBottom: '14px', lineHeight: 1.2 }}>
+                  {step.title}
+                </h2>
+
+                {/* Body */}
+                <p style={{ fontSize: '14px', color: '#6b6560', lineHeight: 1.7, marginBottom: step.bullets ? '16px' : '0', fontFamily: 'DM Sans, sans-serif' }}>
+                  {step.body}
+                </p>
+
+                {/* Bullets */}
+                {step.bullets && (
+                  <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {step.bullets.map((b, i) => (
+                      <li key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', fontSize: '13px', color: '#4a4540', fontFamily: 'DM Sans, sans-serif', lineHeight: 1.5 }}>
+                        <span style={{ color: '#b07a8a', flexShrink: 0, marginTop: '2px', fontWeight: 600 }}>–</span>
+                        {b}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              {/* Footer */}
+              <div style={{ padding: '0 40px 32px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                {/* Dots */}
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  {steps.map((_, i) => (
+                    <div key={i} style={{ width: i === onboardingStep ? '20px' : '6px', height: '6px', borderRadius: '3px', background: i === onboardingStep ? '#1C3557' : '#e8e6e1', transition: 'all .2s' }} />
+                  ))}
+                </div>
+
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  {onboardingStep > 0 && (
+                    <button onClick={() => setOnboardingStep(s => (s ?? 1) - 1)} style={{ padding: '10px 20px', border: '1px solid #e8e6e1', borderRadius: '8px', background: 'none', color: '#6b6560', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', fontSize: '13px' }}>
+                      Back
+                    </button>
+                  )}
+                  {!isLast && (
+                    <button onClick={() => setOnboardingStep(s => (s ?? 0) + 1)} style={{ padding: '10px 24px', border: 'none', borderRadius: '8px', background: '#1C3557', color: 'white', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', fontSize: '13px', fontWeight: 500 }}>
+                      Next →
+                    </button>
+                  )}
+                  {isLast && (
+                    <button onClick={finishOnboarding} style={{ padding: '10px 24px', border: 'none', borderRadius: '8px', background: '#b07a8a', color: 'white', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', fontSize: '13px', fontWeight: 500 }}>
+                      Let's go ✓
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Skip */}
+              <div style={{ textAlign: 'center', paddingBottom: '20px' }}>
+                <button onClick={finishOnboarding} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '11px', color: '#c5c1bb', fontFamily: 'DM Sans, sans-serif', textDecoration: 'underline' }}>
+                  Skip tour
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
     </div>
   )
 }
