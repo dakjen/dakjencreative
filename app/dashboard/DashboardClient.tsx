@@ -22,6 +22,7 @@ const NAV = [
   { id: 'fractional',    label: 'Fractional Services',section: 'lines', ownerOnly: false },
   { id: 'community',     label: 'Business Community', section: 'lines', ownerOnly: false },
   { id: 'websites',      label: 'Websites',        section: 'workspace', ownerOnly: false },
+  { id: 'tools',         label: 'DakJen Tools',    section: 'workspace', ownerOnly: false },
   { id: 'vault',         label: 'Password Vault',  section: 'workspace', ownerOnly: false },
   { id: 'integrations',  label: 'Integrations',    section: 'workspace', ownerOnly: true  },
   { id: 'financials',    label: 'Financials',      section: 'workspace', ownerOnly: true  },
@@ -31,13 +32,14 @@ const NAV = [
 const PAGE_TITLES: Record<string, string> = {
   overview: 'Dashboard', revenue: 'Revenue Tracker', tasks: 'Tasks',
   djc: 'DJC Marketing', notable: 'Notable', elitewise: 'Elitewise Escapes', fractional: 'Fractional Services', community: 'Business Community',
-  websites: 'Websites', vault: 'Password Vault', integrations: 'Integrations',
+  websites: 'Websites', tools: 'DakJen Tools', vault: 'Password Vault', integrations: 'Integrations',
   financials: 'Financials', team: 'Team',
 }
 
 // ── TASK TYPES ──
 interface Task { id: number; text: string; tag: string; due: string | null; assignee: string | null; done: boolean }
 interface WebsiteItem { id: number; name: string; url: string; description: string | null; icon: string; business_line: string | null; created_at: string }
+interface ToolItem { id: number; name: string; url: string; description: string | null; icon: string; category: string; created_at: string }
 interface Contract { id: number; client_name: string; business_line: string; stage: string; probability: number; contract_value: number | null; monthly_retainer: number | null; start_date: string | null; end_date: string | null; notes: string | null }
 interface QuickLinkItem { id: number; name: string; url: string; icon: string; category: string; created_at: string }
 interface VaultEntry { id: number; label: string; username: string | null; password: string; url: string | null; notes: string | null }
@@ -75,6 +77,13 @@ export default function DashboardClient({ session }: { session: Session }) {
   const [showWebsiteModal, setShowWebsiteModal] = useState(false)
   const [editingWebsite, setEditingWebsite] = useState<WebsiteItem | null>(null)
   const [websiteForm, setWebsiteForm] = useState({ name: '', url: '', description: '', icon: '🌐', business_line: '' })
+
+  // ── TOOLS STATE ──
+  const [tools, setTools] = useState<ToolItem[]>([])
+  const [toolsLoaded, setToolsLoaded] = useState(false)
+  const [showToolModal, setShowToolModal] = useState(false)
+  const [editingTool, setEditingTool] = useState<ToolItem | null>(null)
+  const [toolForm, setToolForm] = useState({ name: '', url: '', description: '', icon: '🛠️', category: 'tool' })
 
   // ── CONTRACTS STATE ──
   const [contracts, setContracts] = useState<Contract[]>([])
@@ -129,6 +138,14 @@ export default function DashboardClient({ session }: { session: Session }) {
     setWebsitesLoaded(true)
   }
 
+  async function loadTools() {
+    if (toolsLoaded) return
+    const res  = await fetch('/api/tools')
+    const data = await res.json()
+    setTools(Array.isArray(data) ? data : [])
+    setToolsLoaded(true)
+  }
+
   async function loadQuickLinks() {
     if (quickLinksLoaded) return
     const res  = await fetch('/api/quick-links')
@@ -160,6 +177,7 @@ export default function DashboardClient({ session }: { session: Session }) {
     loadTasks()
     loadContracts()
     loadWebsites()
+    if (page === 'tools') loadTools()
     if (page === 'vault') loadVault()
 
     // Show onboarding for team members who haven't completed it
@@ -282,6 +300,40 @@ export default function DashboardClient({ session }: { session: Session }) {
     setWebsites(ws => ws.filter(w => w.id !== id))
   }
 
+  // ── TOOL CRUD ──
+  async function saveTool() {
+    if (!toolForm.name.trim() || !toolForm.url.trim()) return
+    const method = editingTool ? 'PATCH' : 'POST'
+    const body: any = { ...toolForm }
+    if (editingTool) body.id = editingTool.id
+    if (!body.description) body.description = null
+    const res = await fetch('/api/tools', {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+    if (res.ok) {
+      const item = await res.json()
+      if (editingTool) {
+        setTools(ts => ts.map(t => t.id === item.id ? item : t))
+      } else {
+        setTools(ts => [...ts, item])
+      }
+      setShowToolModal(false)
+      setEditingTool(null)
+      setToolForm({ name: '', url: '', description: '', icon: '🛠️', category: 'tool' })
+    }
+  }
+
+  async function deleteTool(id: number) {
+    await fetch('/api/tools', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id }),
+    })
+    setTools(ts => ts.filter(t => t.id !== id))
+  }
+
   // ── QUICK LINK CRUD ──
   async function saveQuickLink() {
     if (!qlForm.name.trim() || !qlForm.url.trim()) return
@@ -368,6 +420,7 @@ export default function DashboardClient({ session }: { session: Session }) {
     if (id === 'tasks') loadTasks()
     if (id === 'team') loadTeam()
     if (id === 'websites') loadWebsites()
+    if (id === 'tools') loadTools()
     if (id === 'vault') loadVault()
   }
 
@@ -734,6 +787,71 @@ export default function DashboardClient({ session }: { session: Session }) {
         </div>
       )
 
+      case 'tools': {
+        const toolCats: { id: string; label: string }[] = [
+          { id: 'tool',     label: 'Tools & Apps' },
+          { id: 'website',  label: 'Websites' },
+          { id: 'resource', label: 'Resources' },
+        ]
+        const groups = toolCats
+          .map(c => ({ ...c, items: tools.filter(t => (t.category || 'tool') === c.id) }))
+          .filter(g => g.items.length > 0)
+        return (
+        <div className="animate-fadeUp">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+            <div style={{ fontSize: '13px', color: '#9e9a93' }}>The tools, apps, and websites the DakJen team uses every day.</div>
+            {isOwner && (
+              <button onClick={() => { setEditingTool(null); setToolForm({ name: '', url: '', description: '', icon: '🛠️', category: 'tool' }); setShowToolModal(true) }}
+                style={{ padding: '8px 18px', borderRadius: '8px', border: 'none', background: '#b07a8a', color: 'white', fontSize: '13px', fontWeight: 500, cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}>
+                + Add Tool
+              </button>
+            )}
+          </div>
+
+          {!toolsLoaded ? (
+            <div style={{ textAlign: 'center', padding: '48px', color: '#9e9a93', fontSize: '13px' }}>Loading tools...</div>
+          ) : tools.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '48px', color: '#9e9a93', fontSize: '13px' }}>
+              <div style={{ fontSize: '32px', marginBottom: '12px' }}>🛠️</div>
+              No tools yet.{isOwner && ' Click “Add Tool” to add the first one.'}
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
+              {groups.map(g => (
+                <div key={g.id}>
+                  <div style={{ fontSize: '11px', letterSpacing: '.1em', textTransform: 'uppercase', color: '#9e9a93', marginBottom: '14px' }}>{g.label}</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                    {g.items.map(t => (
+                      <div key={t.id} style={{ ...card, display: 'flex', alignItems: 'center', gap: '16px', transition: 'all .2s' }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = '#1C3557'; (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)' }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = '#e8e6e1'; (e.currentTarget as HTMLElement).style.transform = '' }}>
+                        <div style={{ width: '52px', height: '52px', borderRadius: '10px', background: '#f5f4f2', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px', flexShrink: 0 }}>{t.icon}</div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: '14px', fontWeight: 500, color: '#1C3557' }}>{t.name}</div>
+                          <a href={t.url} target="_blank" rel="noreferrer" style={{ fontSize: '12px', color: '#b07a8a', textDecoration: 'none' }}>{t.url.replace(/^https?:\/\//, '')}</a>
+                          {t.description && <div style={{ fontSize: '11px', color: '#9e9a93', marginTop: '2px' }}>{t.description}</div>}
+                        </div>
+                        {isOwner ? (
+                          <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+                            <button onClick={() => { setEditingTool(t); setToolForm({ name: t.name, url: t.url, description: t.description ?? '', icon: t.icon, category: t.category ?? 'tool' }); setShowToolModal(true) }}
+                              style={{ background: 'none', border: 'none', color: '#9e9a93', cursor: 'pointer', fontSize: '12px' }}>Edit</button>
+                            <button onClick={() => deleteTool(t.id)}
+                              style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', fontSize: '12px' }}>Delete</button>
+                          </div>
+                        ) : (
+                          <a href={t.url} target="_blank" rel="noreferrer" style={{ color: '#e8e6e1', fontSize: '18px', textDecoration: 'none' }}>→</a>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+        </div>
+      )}
+
       case 'team': {
         const memberColors = ['#1C3557','#b07a8a','#6366f1','#0e7490','#16a34a','#d97706']
         return (
@@ -1062,6 +1180,45 @@ export default function DashboardClient({ session }: { session: Session }) {
             <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
               <button onClick={() => { setShowWebsiteModal(false); setEditingWebsite(null) }} style={{ padding: '10px 20px', border: '1px solid #e8e6e1', borderRadius: '8px', background: 'none', color: '#6b6560', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', fontSize: '13px' }}>Cancel</button>
               <button onClick={saveWebsite} style={{ padding: '10px 24px', border: 'none', borderRadius: '8px', background: '#b07a8a', color: 'white', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', fontSize: '13px', fontWeight: 500 }}>{editingWebsite ? 'Save Changes' : 'Add Website'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Tool Modal */}
+      {showToolModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 200, background: 'rgba(15,31,51,.6)', backdropFilter: 'blur(4px)', overflowY: 'auto' }} onClick={e => { if (e.target === e.currentTarget) { setShowToolModal(false); setEditingTool(null) } }}>
+          <div style={{ background: 'white', borderRadius: '16px', padding: '36px', width: 'calc(100% - 40px)', maxWidth: '480px', boxShadow: '0 24px 60px rgba(0,0,0,.2)', margin: '20px auto' }}>
+            <h2 style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '24px', color: '#1C3557', marginBottom: '24px' }}>{editingTool ? 'Edit Tool' : 'Add Tool'}</h2>
+            <div style={{ display: 'grid', gridTemplateColumns: '60px 1fr', gap: '12px', marginBottom: '16px' }}>
+              <div>
+                <label style={labelStyle}>Icon</label>
+                <input value={toolForm.icon} onChange={e => setToolForm(f => ({...f, icon: e.target.value}))} style={inputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>Name</label>
+                <input value={toolForm.name} onChange={e => setToolForm(f => ({...f, name: e.target.value}))} placeholder="e.g. Canva" style={inputStyle} />
+              </div>
+            </div>
+            <div style={{ marginBottom: '16px' }}>
+              <label style={labelStyle}>URL</label>
+              <input value={toolForm.url} onChange={e => setToolForm(f => ({...f, url: e.target.value}))} placeholder="https://example.com" style={inputStyle} />
+            </div>
+            <div style={{ marginBottom: '16px' }}>
+              <label style={labelStyle}>Description</label>
+              <input value={toolForm.description} onChange={e => setToolForm(f => ({...f, description: e.target.value}))} placeholder="Short description" style={inputStyle} />
+            </div>
+            <div style={{ marginBottom: '24px' }}>
+              <label style={labelStyle}>Category</label>
+              <select value={toolForm.category} onChange={e => setToolForm(f => ({...f, category: e.target.value}))} style={inputStyle}>
+                <option value="tool">Tools & Apps</option>
+                <option value="website">Websites</option>
+                <option value="resource">Resources</option>
+              </select>
+            </div>
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+              <button onClick={() => { setShowToolModal(false); setEditingTool(null) }} style={{ padding: '10px 20px', border: '1px solid #e8e6e1', borderRadius: '8px', background: 'none', color: '#6b6560', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', fontSize: '13px' }}>Cancel</button>
+              <button onClick={saveTool} style={{ padding: '10px 24px', border: 'none', borderRadius: '8px', background: '#b07a8a', color: 'white', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', fontSize: '13px', fontWeight: 500 }}>{editingTool ? 'Save Changes' : 'Add Tool'}</button>
             </div>
           </div>
         </div>

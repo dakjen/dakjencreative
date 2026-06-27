@@ -54,6 +54,17 @@ export const websites = pgTable('websites', {
   createdAt: timestamp('created_at').defaultNow(),
 })
 
+export const tools = pgTable('tools', {
+  id: serial('id').primaryKey(),
+  name: text('name').notNull(),
+  url: text('url').notNull(),
+  description: text('description'),
+  icon: varchar('icon', { length: 10 }).notNull().default('🛠️'),
+  category: varchar('category', { length: 20 }).notNull().default('tool'),
+  createdBy: integer('created_by').references(() => users.id),
+  createdAt: timestamp('created_at').defaultNow(),
+})
+
 export const quickLinks = pgTable('quick_links', {
   id: serial('id').primaryKey(),
   name: text('name').notNull(),
@@ -81,5 +92,6 @@ export type NewTask     = typeof tasks.$inferInsert
 export type Contract    = typeof contracts.$inferSelect
 export type NewContract = typeof contracts.$inferInsert
 export type Website     = typeof websites.$inferSelect
+export type Tool        = typeof tools.$inferSelect
 export type QuickLink   = typeof quickLinks.$inferSelect
 export type VaultEntry  = typeof vault.$inferSelect
